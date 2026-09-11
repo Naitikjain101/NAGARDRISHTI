@@ -1,0 +1,6 @@
+path: /Users/naitikjain/Documents/Nagardristi2.0/backend/data/waterlogging/yolo_dataset
+train: images/annotation_pool
+val: images/annotation_pool
+
+names:
+  0: waterlogging

@@ -1,0 +1,28 @@
+{
+  "eval_video": "/Users/naitikjain/Documents/Nagardristi2.0/backend/data/waterlogging/evaluation/v1_evaluation.mp4",
+  "model_path": "/Users/naitikjain/Documents/Nagardristi2.0/runs/segment/models/waterlogging/v1/weights/best.pt",
+  "model_sha256": "a2a1b13cc42f4f86ba4ec0f0bdfc524065bce5291eb3e698c56d3cdcdb968694",
+  "model_sha256_first16": "a2a1b13cc42f4f86",
+  "video_dims": [
+    854,
+    480
+  ],
+  "video_fps": 58.703,
+  "total_video_frames": 2734,
+  "frames_sampled": 95,
+  "frames_with_detections": 95,
+  "total_raw_detections": 129,
+  "confidence_stats": {
+    "mean": 0.8752,
+    "min": 0.4044,
+    "max": 0.9951
+  },
+  "area_ratio_stats": {
+    "mean": 0.3948,
+    "min": 0.0072,
+    "max": 0.7325
+  },
+  "coordinate_audit": "COORDINATES OK - all bbox coords fall within frame dimensions",
+  "step2_rendering_bug_ruled_out": true,
+  "processing_seconds": 7.7
+}

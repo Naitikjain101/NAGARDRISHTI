@@ -1,0 +1,34 @@
+{
+  "version": "v2",
+  "phase10_step": "17 - Corrected video-level train/val/test split",
+  "split": {
+    "train_positives": [
+      "17929886-uhd_3840_2160_59fps_compressed.mp4",
+      "car-driving-through-a-flooded-street-in-during-a-flooding.mp4",
+      "cars-driving-street-flooded-during-a-flooding-in-thailand.mp4"
+    ],
+    "val_positives": [
+      "traffic-on-flooded-road.mp4",
+      "16373790_3840_2160_30fps_compressed.mp4"
+    ],
+    "test_positives": [
+      "car-driving-through-a-flooded-street-in-during-a-flooding-2.mp4"
+    ],
+    "train_negatives": [
+      "20260902_081615.mp4",
+      "20260902_083213.mp4",
+      "traffic_test-2-2-2.mp4"
+    ],
+    "val_negatives": [
+      "20260902_083003.mp4"
+    ]
+  },
+  "frame_counts": {
+    "train_positive_frames": 212,
+    "val_positive_frames": 49,
+    "test_positive_frames": 44
+  },
+  "annotation_status": "PENDING \u2014 label files are empty placeholders",
+  "data_yaml": "/Users/naitikjain/Documents/Nagardristi2.0/backend/data/waterlogging/yolo_dataset_v2/data.yaml",
+  "critical_fix": "V1 data.yaml had train == val (identical files). All val metrics in V1 were measuring memorization. V2 uses video-level split for genuine generalization measurement."
+}

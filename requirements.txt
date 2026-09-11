@@ -1,0 +1,17 @@
+ultralytics>=8.4.0
+torch>=2.0.0
+torchvision>=0.15.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6
+psutil>=5.9.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.25.0
+pydantic>=2.0.0
+aiofiles>=23.0.0
+supabase>=2.3.0
+python-dotenv>=1.0.0
+shapely>=2.0.0

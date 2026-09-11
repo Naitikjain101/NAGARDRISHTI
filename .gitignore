@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/venv/
+
+# Model weights (large files — do not commit)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+*.pb
+*.so
+*.dylib
+
+# Uploaded videos
+backend/uploads/
+uploads/
+*.mp4
+*.avi
+*.mov
+
+# AI result JSONs
+backend/results/
+results/
+benchmark_outputs/
+
+# Node/Frontend
+node_modules/
+frontend-react/node_modules/
+
+# Test videos (provide separately)
+backend/video/test_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Ultralytics cache
+runs/
+datasets/

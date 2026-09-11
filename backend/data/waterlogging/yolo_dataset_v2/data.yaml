@@ -1,0 +1,9 @@
+# Waterlogging Dataset V2 — Phase 10 Step 17
+path: /Users/naitikjain/Documents/Nagardristi2.0/backend/data/waterlogging/yolo_dataset_v2
+train: images/train
+val:   images/val
+test:  images/test
+
+nc: 1
+names:
+  0: waterlogging

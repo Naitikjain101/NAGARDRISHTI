@@ -1,0 +1,8 @@
+{
+  "total_raw": 658,
+  "rejected_roi": 148,
+  "rejected_geometry": 0,
+  "rejected_low_confidence": 0,
+  "rejected_vehicle_overlap": 11,
+  "rejected_temporal_noise": 1
+}

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Urban Watch — AI-powered urban traffic surveillance and analytics system. Phase 1: Real-time vehicle detection, tracking, and density analysis." />
+  <title>Urban Watch — AI Traffic Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" id="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="12" stroke="url(#brandGrad)" stroke-width="2"/>
+            <circle cx="14" cy="14" r="5" fill="url(#brandGrad)"/>
+            <line x1="14" y1="2" x2="14" y2="7" stroke="url(#brandGrad)" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="21" x2="14" y2="26" stroke="url(#brandGrad)" stroke-width="2" stroke-linecap="round"/>
+            <line x1="2" y1="14" x2="7" y2="14" stroke="url(#brandGrad)" stroke-width="2" stroke-linecap="round"/>
+            <line x1="21" y1="14" x2="26" y2="14" stroke="url(#brandGrad)" stroke-width="2" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28">
+                <stop offset="0%" stop-color="#6366f1"/>
+                <stop offset="100%" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <span class="brand-name">Urban Watch</span>
+          <span class="brand-phase">Phase 1 · AI Detection Foundation</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-pill" id="device-pill">
+          <span class="status-dot" id="device-dot"></span>
+          <span id="device-label">Detecting...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-layout">
+    <!-- Left: Video Panel -->
+    <section class="video-panel" id="video-section">
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload video">
+        <div class="upload-content">
+          <div class="upload-icon">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="27" stroke="url(#uploadGrad)" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <path d="M28 36V20M28 20L21 27M28 20L35 27" stroke="url(#uploadGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M18 40h20" stroke="url(#uploadGrad)" stroke-width="2" stroke-linecap="round"/>
+              <defs>
+                <linearGradient id="uploadGrad" x1="0" y1="0" x2="56" y2="56">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <p class="upload-title">Drop video here or click to browse</p>
+          <p class="upload-sub">MP4, AVI, MOV, MKV · 144p – 4K · Any FPS</p>
+          <button class="btn-primary" id="browse-btn" type="button">Browse File</button>
+          <input type="file" id="file-input" accept="video/*" style="display:none" aria-label="Select video file" />
+        </div>
+      </div>
+
+      <!-- Video Player (hidden until upload) -->
+      <div class="video-container" id="video-container" style="display:none">
+        <video
+          id="main-video"
+          playsinline
+          controls
+          preload="metadata"
+          aria-label="Traffic surveillance video"
+        ></video>
+        <canvas id="overlay-canvas" aria-hidden="true"></canvas>
+        <div class="video-badge" id="processing-badge" style="display:none">
+          <div class="spinner-sm"></div>
+          <span>Processing AI…</span>
+        </div>
+        <div class="video-badge video-badge-done" id="done-badge" style="display:none">
+          <span>✓ AI Complete</span>
+        </div>
+      </div>
+
+      <!-- Video Metadata Bar -->
+      <div class="video-meta-bar" id="video-meta-bar" style="display:none">
+        <div class="meta-item">
+          <span class="meta-label">RESOLUTION</span>
+          <span class="meta-value" id="meta-resolution">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">VIDEO FPS</span>
+          <span class="meta-value" id="meta-fps">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">DURATION</span>
+          <span class="meta-value" id="meta-duration">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">CODEC</span>
+          <span class="meta-value" id="meta-codec">—</span>
+        </div>
+      </div>
+
+      <!-- AI Process Button -->
+      <div class="action-bar" id="action-bar" style="display:none">
+        <button class="btn-process" id="process-btn" type="button">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2a7 7 0 100 14A7 7 0 009 2z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M7 6.5l4 2.5-4 2.5V6.5z" fill="currentColor"/>
+          </svg>
+          Process with AI
+        </button>
+        <div class="progress-bar-wrap" id="progress-wrap" style="display:none">
+          <div class="progress-bar" id="progress-bar"></div>
+          <span class="progress-label" id="progress-label">0 / 0 frames</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Analytics Panel -->
+    <aside class="analytics-panel" id="analytics-panel">
+
+      <!-- Device Card -->
+      <div class="card" id="device-card">
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <h2 class="card-title">Compute Device</h2>
+        </div>
+        <div class="device-grid">
+          <div class="device-item">
+            <span class="device-label">Device</span>
+            <span class="device-value accent" id="info-device">Detecting…</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">MPS</span>
+            <span class="device-value" id="info-mps">—</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">CUDA</span>
+            <span class="device-value" id="info-cuda">—</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">PyTorch</span>
+            <span class="device-value mono" id="info-torch">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Card -->
+      <div class="card" id="model-card">
+        <div class="card-header">
+          <span class="card-icon">🧠</span>
+          <h2 class="card-title">AI Model</h2>
+        </div>
+        <div class="device-grid">
+          <div class="device-item">
+            <span class="device-label">Model</span>
+            <span class="device-value mono accent" id="info-model">—</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">Input Size</span>
+            <span class="device-value" id="info-imgsz">—</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">Confidence</span>
+            <span class="device-value" id="info-conf">—</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">Interval</span>
+            <span class="device-value" id="info-interval">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Card -->
+      <div class="card" id="perf-card">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <h2 class="card-title">Performance</h2>
+        </div>
+        <div class="perf-grid">
+          <div class="perf-item">
+            <div class="perf-value" id="perf-fps">—</div>
+            <div class="perf-label">Processing FPS</div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-value" id="perf-frames">—</div>
+            <div class="perf-label">Frames Processed</div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-value" id="perf-inference">—</div>
+            <div class="perf-label">Avg Inference (ms)</div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-value" id="perf-tracks">—</div>
+            <div class="perf-label">ID Switches</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Detection Card -->
+      <div class="card" id="detection-card">
+        <div class="card-header">
+          <span class="card-icon">🔍</span>
+          <h2 class="card-title">Live Detections</h2>
+          <span class="card-badge" id="detection-count-badge">0</span>
+        </div>
+        <div class="detection-list" id="detection-list">
+          <p class="empty-state">No detections yet.<br>Upload and process a video.</p>
+        </div>
+      </div>
+
+      <!-- Pothole Intelligence Card -->
+      <div class="card" id="pothole-card">
+        <div class="card-header">
+          <span class="card-icon">🕳️</span>
+          <h2 class="card-title">Pothole Intelligence</h2>
+          <span class="card-badge accent" id="pothole-total-badge">0</span>
+        </div>
+        <div class="device-grid" id="pothole-grid">
+          <div class="device-item">
+            <span class="device-label">Confirmed</span>
+            <span class="device-value accent" id="pothole-confirmed">0</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">Suppressed (Shadows)</span>
+            <span class="device-value" id="pothole-suppressed">0</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">Outside ROI</span>
+            <span class="device-value" id="pothole-outside">0</span>
+          </div>
+          <div class="device-item">
+            <span class="device-label">Highest Severity</span>
+            <span class="device-value mono" id="pothole-severity">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicle Count Card -->
+      <div class="card" id="vehicle-card">
+        <div class="card-header">
+          <span class="card-icon">🚗</span>
+          <h2 class="card-title">Vehicle Count</h2>
+          <span class="card-badge accent" id="total-vehicle-badge">0</span>
+        </div>
+        <div class="vehicle-grid" id="vehicle-grid">
+          <div class="vehicle-item">
+            <span class="vehicle-emoji">🚗</span>
+            <span class="vehicle-count" id="count-car">—</span>
+            <span class="vehicle-name">Cars</span>
+          </div>
+          <div class="vehicle-item">
+            <span class="vehicle-emoji">🏍️</span>
+            <span class="vehicle-count" id="count-motorcycle">—</span>
+            <span class="vehicle-name">Motorcycles</span>
+          </div>
+          <div class="vehicle-item">
+            <span class="vehicle-emoji">🚌</span>
+            <span class="vehicle-count" id="count-bus">—</span>
+            <span class="vehicle-name">Buses</span>
+          </div>
+          <div class="vehicle-item">
+            <span class="vehicle-emoji">🚛</span>
+            <span class="vehicle-count" id="count-truck">—</span>
+            <span class="vehicle-name">Trucks</span>
+          </div>
+          <div class="vehicle-item">
+            <span class="vehicle-emoji">🚲</span>
+            <span class="vehicle-count" id="count-bicycle">—</span>
+            <span class="vehicle-name">Bicycles</span>
+          </div>
+          <div class="vehicle-item">
+            <span class="vehicle-emoji">🚶</span>
+            <span class="vehicle-count" id="count-person">—</span>
+            <span class="vehicle-name">Persons</span>
+          </div>
+        </div>
+        <p class="count-note" id="count-note">Unique track IDs. Not raw detection count.</p>
+      </div>
+
+      <!-- Traffic Density Card -->
+      <div class="card" id="density-card">
+        <div class="card-header">
+          <span class="card-icon">🌊</span>
+          <h2 class="card-title">Traffic Density</h2>
+        </div>
+        <div class="density-display" id="density-display">
+          <div class="density-level-badge" id="density-badge">—</div>
+          <div class="density-count" id="density-vehicle-count">— vehicles / 5s window</div>
+        </div>
+        <div class="density-windows" id="density-windows">
+          <!-- Populated dynamically -->
+        </div>
+        <p class="density-note">Prototype metric. Not calibrated traffic engineering data.</p>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/overlay.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
