@@ -42,6 +42,8 @@ from api.routes_maintenance import router as maintenance_router
 from api.routes_fleet import router as fleet_router
 from api.routes_notifications import router as notifications_router
 from api.routes_waterlogging_forensic import router as waterlogging_forensic_router
+from api.routes_pothole_lab import router as pothole_lab_router
+from api.routes_missions import router as missions_router
 from ai.common.device import get_device_info
 
 # Configure Structured Logging
@@ -138,7 +140,9 @@ app.include_router(annotation_router, prefix="/api/waterlogging/annotations", ta
 app.include_router(maintenance_router)
 app.include_router(fleet_router)
 app.include_router(notifications_router)
-app.include_router(waterlogging_forensic_router)  # Phase 10 Step 21
+app.include_router(waterlogging_forensic_router)
+app.include_router(pothole_lab_router, prefix="/api")
+app.include_router(missions_router)
 
 @app.on_event("startup")
 async def startup_event():

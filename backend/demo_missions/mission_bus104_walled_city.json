@@ -1,0 +1,27 @@
+{
+  "bus_id": "BUS-104",
+  "route_id": "R-01",
+  "route_name": "Jaipur Walled City Loop",
+  "video_filename": "potholes.mp4",
+  "duration": 512,
+  "gps": [
+    {"timestamp": 0,   "lat": 26.9239, "lng": 75.8267},
+    {"timestamp": 30,  "lat": 26.9251, "lng": 75.8290},
+    {"timestamp": 60,  "lat": 26.9262, "lng": 75.8315},
+    {"timestamp": 90,  "lat": 26.9270, "lng": 75.8341},
+    {"timestamp": 120, "lat": 26.9275, "lng": 75.8368},
+    {"timestamp": 150, "lat": 26.9278, "lng": 75.8394},
+    {"timestamp": 180, "lat": 26.9282, "lng": 75.8420},
+    {"timestamp": 210, "lat": 26.9289, "lng": 75.8445},
+    {"timestamp": 240, "lat": 26.9298, "lng": 75.8467},
+    {"timestamp": 270, "lat": 26.9308, "lng": 75.8488},
+    {"timestamp": 300, "lat": 26.9318, "lng": 75.8507},
+    {"timestamp": 330, "lat": 26.9325, "lng": 75.8524},
+    {"timestamp": 360, "lat": 26.9330, "lng": 75.8540},
+    {"timestamp": 390, "lat": 26.9331, "lng": 75.8555},
+    {"timestamp": 420, "lat": 26.9328, "lng": 75.8568},
+    {"timestamp": 450, "lat": 26.9320, "lng": 75.8580},
+    {"timestamp": 480, "lat": 26.9309, "lng": 75.8590},
+    {"timestamp": 512, "lat": 26.9295, "lng": 75.8598}
+  ]
+}

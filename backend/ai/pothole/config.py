@@ -20,11 +20,11 @@ POTHOLE_DIR = Path(__file__).parent
 WEIGHTS_DIR = POTHOLE_DIR / "weights"
 
 # Default Model Checkpoint
-DEFAULT_POTHOLE_MODEL = str(WEIGHTS_DIR / "pothole_yolov8_peterhdd.pt")
+DEFAULT_POTHOLE_MODEL = str(WEIGHTS_DIR / "yolo26m_pothole_best.pt")
 
 # Inference Settings (Benchmark Proven)
 POTHOLE_IMGSZ: int = 640
-POTHOLE_CONFIDENCE_THRESHOLD: float = 0.25
+POTHOLE_CONFIDENCE_THRESHOLD: float = 0.65
 POTHOLE_IOU_THRESHOLD: float = 0.45
 
 # Video Event Tracking Settings
@@ -34,12 +34,20 @@ POTHOLE_TRACKING_IOU_THRESHOLD: float = 0.20
 
 # Available / Audited Model Variants
 AUDITED_MODELS = {
+    "yolo26m_pothole_best": {
+        "path": str(WEIGHTS_DIR / "yolo26m_pothole_best.pt"),
+        "family": "YOLO26m",
+        "native_imgsz": 640,
+        "classes": {0: "pothole"},
+        "status": "APPROVED_PRODUCTION",
+        "notes": "New YOLO26m production model. Replaces yolov8m_peterhdd."
+    },
     "yolov8m_peterhdd": {
         "path": str(WEIGHTS_DIR / "pothole_yolov8_peterhdd.pt"),
         "family": "YOLOv8m",
         "native_imgsz": 640,
         "classes": {0: "pothole"},
-        "status": "APPROVED_PRODUCTION",
+        "status": "DEPRECATED_BACKUP",
         "notes": "Hugging Face model. Massive reduction in false positives on complex road textures vs yolo26n."
     },
     "yolo26n_640": {

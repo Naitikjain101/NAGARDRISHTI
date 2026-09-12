@@ -92,8 +92,9 @@ async def upload_video(file: UploadFile = File(...)):
 
     # Write to disk
     try:
-        content = await file.read()
-        dest_path.write_bytes(content)
+        import shutil
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
     except Exception as exc:
         dest_path.unlink(missing_ok=True)
         logger.error("Failed to write upload to disk: %s", exc)

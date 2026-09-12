@@ -64,7 +64,53 @@ from video.reader import read_video_info, iter_frames, VideoReadError
 from video.sampler import FrameSampler, SamplerConfig
 import ultralytics
 
+import ultralytics
+
 logger = logging.getLogger(__name__)
+
+class UnifiedModelCache:
+    """Singleton cache for ML models to avoid reloading them per-video."""
+    _instance = None
+    
+    def __init__(self):
+        self.device = get_device_info().device_str
+        logger.info(f"Initializing Global Model Cache on {self.device}...")
+        
+        # Vehicle
+        self.vehicle_model = YOLO(PRODUCTION_MODEL)
+        self.vehicle_model.to(self.device)
+        self.class_filter = get_phase1_class_ids(self.vehicle_model.names)
+        
+        # Pothole
+        self.pothole_detector = PotholeDetector(
+            config=PotholeDetectorConfig(
+                model_path=DEFAULT_POTHOLE_MODEL,
+                imgsz=POTHOLE_IMGSZ,
+                confidence_threshold=POTHOLE_CONFIDENCE_THRESHOLD,
+                iou_threshold=POTHOLE_IOU_THRESHOLD,
+            )
+        )
+        self.pothole_detector.load()
+        
+        # Waterlogging
+        if WATERLOGGING_ENABLED:
+            self.waterlogging_detector = WaterloggingDetector(
+                config=WaterloggingDetectorConfig(
+                    model_path=DEFAULT_WATERLOGGING_MODEL,
+                    imgsz=WATERLOGGING_IMGSZ,
+                    confidence_threshold=WATERLOGGING_CONFIDENCE_THRESHOLD,
+                    iou_threshold=WATERLOGGING_IOU_THRESHOLD,
+                )
+            )
+            self.waterlogging_detector.load()
+        else:
+            self.waterlogging_detector = None
+            
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
 class UnifiedVideoProcessor:
     """
@@ -124,48 +170,23 @@ class UnifiedVideoProcessor:
             torch_version=str(torch.__version__),
         )
 
-        # 2. Load Models
+        # 2. Load Models (Singleton)
         try:
-            vehicle_model = YOLO(PRODUCTION_MODEL)
-            vehicle_model.to(self.device)
-            class_filter = get_phase1_class_ids(vehicle_model.names)
-            
-            pothole_detector = PotholeDetector(
-                config=PotholeDetectorConfig(
-                    model_path=DEFAULT_POTHOLE_MODEL,
-                    imgsz=POTHOLE_IMGSZ,
-                    confidence_threshold=POTHOLE_CONFIDENCE_THRESHOLD,
-                    iou_threshold=POTHOLE_IOU_THRESHOLD,
-                )
-            )
-            pothole_detector.load()
-            
-            if WATERLOGGING_ENABLED:
-                waterlogging_detector = WaterloggingDetector(
-                    config=WaterloggingDetectorConfig(
-                        model_path=DEFAULT_WATERLOGGING_MODEL,
-                        imgsz=WATERLOGGING_IMGSZ,
-                        confidence_threshold=WATERLOGGING_CONFIDENCE_THRESHOLD,
-                        iou_threshold=WATERLOGGING_IOU_THRESHOLD,
-                    )
-                )
-                waterlogging_detector.load()
-            else:
-                waterlogging_detector = None
-                logger.warning(
-                    "[VIDEO] job=%s waterlogging=DISABLED (Phase 10 safety toggle: WATERLOGGING_ENABLED=False)",
-                    video_id,
-                )
+            cache = UnifiedModelCache.get_instance()
+            vehicle_model = cache.vehicle_model
+            class_filter = cache.class_filter
+            pothole_detector = cache.pothole_detector
+            waterlogging_detector = cache.waterlogging_detector
         except ModelNotFoundError as exc:
             logger.error("Unified model missing: %s", exc)
             error_payload = json.dumps({
                 "success": False,
-                "error": "WATERLOGGING_MODEL_NOT_FOUND",
-                "model_path": DEFAULT_WATERLOGGING_MODEL,
+                "error": "MODEL_NOT_FOUND",
                 "resolved_path": exc.resolved_path,
                 "exists": False
             })
             return self._error_result(video_id, video_path, error_payload)
+
         except Exception as exc:
             logger.error("Unified model load failed: %s", exc)
             return self._error_result(video_id, video_path, f"Model load failed: {exc}")

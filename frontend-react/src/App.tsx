@@ -15,6 +15,7 @@ import { RoadIntelligence } from './pages/RoadIntelligence'
 import { TrafficIntelligence } from './pages/TrafficIntelligence'
 import { Fleet } from './pages/Fleet'
 import { Maintenance } from './pages/Maintenance'
+import PotholeLab from './pages/PotholeLab'
 
 const queryClient = new QueryClient()
 
@@ -34,8 +35,10 @@ function App() {
             <Route path="fleet" element={<Fleet />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="maintenance" element={<Maintenance />} />
-            <Route path="ai" element={<AIControlCenter />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="/ai/traffic" element={<TrafficIntelligence />} />
+            <Route path="/ai/control" element={<AIControlCenter />} />
+            <Route path="/ai/pothole-lab" element={<PotholeLab />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>

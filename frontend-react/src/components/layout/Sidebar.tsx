@@ -18,7 +18,8 @@ const navItems = [
   { name: 'Fleet', href: '/fleet', icon: Bus },
   { name: 'Analytics', href: '/analytics', icon: BarChart2 },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-  { name: 'AI Control Center', href: '/ai', icon: Cpu },
+  { name: 'AI Control Center', href: '/ai/control', icon: Cpu },
+  { name: 'Model Lab', href: '/ai/pothole-lab', icon: Cpu },
 ]
 
 export function Sidebar() {

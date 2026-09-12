@@ -42,6 +42,52 @@ def set_directories(upload_dir: Path, results_dir: Path) -> None:
     RESULTS_DIR = results_dir
 
 
+DEMO_DIR: Path = Path("demo_videos")
+
+@router.post("/demo/{demo_name}")
+async def run_demo_video(demo_name: str):
+    """
+    Trigger AI processing directly on a pre-existing demo video.
+    Bypasses the HTTP upload entirely to ensure zero upload latency.
+    """
+    demo_path = DEMO_DIR / demo_name
+    if not demo_path.exists():
+        raise HTTPException(status_code=404, detail=f"Demo video {demo_name} not found in {DEMO_DIR}")
+        
+    client = get_supabase()
+    
+    # Generate a unique video_id for this run so it doesn't collide with previous demo runs
+    video_id = f"demo_{uuid.uuid4().hex[:8]}"
+    
+    # Copy the demo video into the uploads directory so the frontend can stream it
+    dest_path = UPLOAD_DIR / f"{video_id}{demo_path.suffix}"
+    import shutil
+    shutil.copy2(demo_path, dest_path)
+    
+    device_info = get_device_info()
+    job_record = client.table("ai_jobs").insert({
+        "video_id": video_id,
+        "status": ProcessingStatus.QUEUED.value,
+        "device": device_info.device_str,
+    }).execute()
+    
+    job_id = job_record.data[0]["id"]
+    
+    # Start processing thread
+    thread = threading.Thread(
+        target=_run_processing,
+        args=(job_id, video_id, str(dest_path), client),
+        daemon=True
+    )
+    thread.start()
+    
+    return {
+        "job_id": job_id,
+        "video_id": video_id,
+        "status": ProcessingStatus.QUEUED.value,
+        "message": f"Demo processing started for {demo_name}"
+    }
+
 @router.post("/process/{video_id}")
 async def process_video_unified(video_id: str):
     video_path = _find_video(video_id)

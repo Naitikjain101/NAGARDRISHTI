@@ -1,0 +1,28 @@
+[
+  {
+    "event_id": 1,
+    "event_type": "pothole",
+    "status": "rejected_temporal",
+    "first_seen_frame": 124,
+    "first_seen_timestamp": 4.137,
+    "first_seen": null,
+    "last_seen_frame": 124,
+    "last_seen_timestamp": 4.137,
+    "last_seen": null,
+    "total_detections": 1,
+    "span_frames": 1,
+    "stability_score": 1.0,
+    "max_confidence": 0.4044,
+    "mean_confidence": 0.4044,
+    "representative_bbox": [
+      194.6,
+      411.79,
+      361.94,
+      478.58
+    ],
+    "estimated_severity": "MEDIUM",
+    "gps_location": null,
+    "suppression_reason": null,
+    "overlapping_vehicle_track_id": null
+  }
+]

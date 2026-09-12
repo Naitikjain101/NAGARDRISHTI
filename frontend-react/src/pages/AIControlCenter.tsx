@@ -18,7 +18,7 @@ export function AIControlCenter() {
 
   const models = [
     { id: 'waterlogging', name: 'WATERLOGGING V1', task: 'Segmentation', version: 'YOLOv8-seg', status: 'ACTIVE', conf: '45%' },
-    { id: 'pothole', name: 'POTHOLE MODEL', task: 'Detection', version: 'YOLOv8', status: 'ACTIVE', conf: '35%' },
+    { id: 'pothole', name: 'POTHOLE MODEL', task: 'Detection', version: 'YOLO26m', status: 'ACTIVE', conf: '40%' },
     { id: 'vehicle', name: 'VEHICLE DETECTOR', task: 'Detection & Tracking', version: 'YOLOv8', status: 'ACTIVE', conf: '50%' },
     { id: 'helmet', name: 'HELMET MODEL', task: 'Classification', version: 'YOLOv8-cls', status: 'ACTIVE', conf: '60%' },
   ];
