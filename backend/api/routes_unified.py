@@ -270,11 +270,18 @@ def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
     logger.info("[VIDEO] job=%s processor_started video_path=%s", job_id, video_path)
     repo.update_status(job_id=job_id, status=ProcessingStatus.RUNNING)
 
+    # Sync demo_missions.status so the Fleet page reflects real progress
+    try:
+        client.table("demo_missions").update({"status": "PROCESSING"}).eq("metadata->>video_id", video_id).execute()
+        logger.info("[VIDEO] job=%s demo_mission_status=PROCESSING video_id=%s", job_id, video_id)
+    except Exception as _ms_exc:
+        logger.warning("[VIDEO] job=%s failed to set demo_mission PROCESSING: %s", job_id, _ms_exc)
+
     # Track actual sampled frame count for accurate progress
     _processed_frames_count = [0]
     _total_frames_count = [0]
 
-    def progress_callback(done: int, total: int, fps: float = 0.0, vehicles: int = 0, active_events: int = 0) -> None:
+    def progress_callback(done: int, total: int, fps: float = 0.0, vehicles: int = 0, potholes: int = 0, waterlogging: int = 0) -> None:
         _processed_frames_count[0] = done
         _total_frames_count[0] = total
         if done % 10 == 0 or done == total:
@@ -286,6 +293,23 @@ def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
                 total_frames=total,
                 processing_fps=round(fps, 1) if fps else None,
             )
+            # Update telemetry in demo_missions metadata for Live UI
+            try:
+                ms_resp = client.table("demo_missions").select("metadata").eq("metadata->>video_id", video_id).execute()
+                if ms_resp.data:
+                    metadata = ms_resp.data[0].get("metadata") or {}
+                    metadata["telemetry"] = {
+                        "progress_frames": done,
+                        "total_frames": total,
+                        "processing_fps": round(fps, 1) if fps else None,
+                        "vehicles_found": vehicles,
+                        "potholes_found": potholes,
+                        "waterlogging_found": waterlogging,
+                        "eta_seconds": round((total - done) / max(fps, 0.1)) if fps > 0 else 0
+                    }
+                    client.table("demo_missions").update({"metadata": metadata}).eq("metadata->>video_id", video_id).execute()
+            except Exception as e:
+                logger.warning("[VIDEO] Failed to update telemetry for video_id=%s: %s", video_id, e)
 
     try:
         processor = UnifiedVideoProcessor()
@@ -301,9 +325,15 @@ def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
         logger.info("[VIDEO] job=%s ai_complete status=%s", job_id, result.status)
 
         final_status = ProcessingStatus.COMPLETED if result.status in (ProcessingStatus.COMPLETED, ProcessingStatus.COMPLETE) else ProcessingStatus.FAILED
+        error_msg = result.error if hasattr(result, "error") else None
 
         if final_status == ProcessingStatus.COMPLETED:
-            _persist_results(client, job_id, video_id, result)
+            try:
+                _persist_results(client, job_id, video_id, result)
+            except Exception as e:
+                logger.error("[VIDEO] job=%s persistence failed: %s", job_id, e)
+                final_status = ProcessingStatus.FAILED
+                error_msg = str(e)
 
         # Final DB status update with accurate frame counts
         frames_done = _processed_frames_count[0]
@@ -311,7 +341,7 @@ def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
 
         client.table("ai_jobs").update({
             "status": final_status,
-            "error": result.error,
+            "error": error_msg,
             "frames_processed": frames_done,
             "total_frames": frames_total,
             "completed_at": datetime.now(timezone.utc).isoformat(),
@@ -321,6 +351,10 @@ def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
             "[VIDEO] job=%s status=%s frames_processed=%d total_frames=%d",
             job_id, final_status, frames_done, frames_total,
         )
+        
+        # Update demo_mission status properly
+        demo_status = "READY" if final_status == ProcessingStatus.COMPLETED else "FAILED"
+        client.table("demo_missions").update({"status": demo_status}).eq("metadata->>video_id", video_id).execute()
 
     except Exception as exc:
         error_str = str(exc)
@@ -334,11 +368,31 @@ def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
         except Exception as db_exc:
             logger.error("[VIDEO] job=%s CRITICAL failed to write error status: %s", job_id, db_exc)
 
+        # Sync demo_missions.status to FAILED
+        try:
+            client.table("demo_missions").update({"status": "FAILED"}).eq("metadata->>video_id", video_id).execute()
+            logger.info("[VIDEO] job=%s demo_mission_status=FAILED video_id=%s", job_id, video_id)
+        except Exception as _ms_exc:
+            logger.warning("[VIDEO] job=%s failed to set demo_mission FAILED: %s", job_id, _ms_exc)
+
+
 
 def _persist_results(client, job_id: str, video_id: str, result) -> None:
-    """Persist incidents, traffic windows, and evidence to Supabase. Failures are logged, not swallowed silently."""
+    """
+    Persist incidents, observations, traffic windows, and evidence to Supabase.
+    
+    KEY FIX (Phase 12.5):
+    - GPS interpolated from route_points so incidents appear on map
+    - incident_observations rows created so Evidence Trail is NOT blank
+    - first_seen_at / last_seen_at set on each incident
+    - mission_id stored in incident metadata
+    """
+    from db.mission_repository import MissionRepository
+    from ai.gis.interpolator import InterpolationEngine
+    from missions.deduplication import DeduplicationPipeline
+
     try:
-        # Upload results JSON to Supabase Storage
+        # ── 0. Upload results JSON to Supabase Storage ─────────────────────────
         bucket = "urban_watch_evidence"
         result_path = RESULTS_DIR / f"{video_id}_unified.json"
         if result_path.exists():
@@ -351,10 +405,47 @@ def _persist_results(client, job_id: str, video_id: str, result) -> None:
                     )
                 logger.info("[VIDEO] job=%s results_uploaded_to_storage", job_id)
             except Exception as storage_exc:
-                logger.warning("[VIDEO] job=%s storage_upload_failed (results still local): %s", job_id, storage_exc)
+                # Do NOT raise here — a storage failure should not kill incident persistence.
+                # Log the error but continue so incidents/observations still get saved.
+                logger.error("[VIDEO] job=%s storage_upload_failed (continuing): %s", job_id, storage_exc)
 
-        # Batch Insert Traffic Windows
+        # ── 1. Look up the linked demo_mission + route GPS ────────────────────
+        mission_repo = MissionRepository(client)
+        mission_id: str | None = None
+        bus_id: str | None = None
+        route_name: str | None = None
+        interpolator: InterpolationEngine | None = None
+
+        try:
+            ms_resp = client.table("demo_missions").select("id, bus_id, route_name, metadata") \
+                .eq("metadata->>video_id", video_id).execute()
+            if ms_resp.data:
+                ms = ms_resp.data[0]
+                mission_id = ms["id"]
+                bus_id = ms.get("bus_id")
+                route_name = ms.get("route_name")
+                route_points = mission_repo.get_route_points(mission_id)
+                if len(route_points) >= 2:
+                    interpolator = InterpolationEngine(route_points)
+                    logger.info("[VIDEO] job=%s GPS interpolator ready points=%d", job_id, len(route_points))
+                else:
+                    logger.warning("[VIDEO] job=%s too few route_points (%d) for GPS interpolation", job_id, len(route_points))
+        except Exception as gps_exc:
+            logger.warning("[VIDEO] job=%s GPS lookup failed (incidents will have no lat/lng): %s", job_id, gps_exc)
+
+        # Helper — interpolate safely, return (lat, lng) or (None, None)
+        def _gps_at(ts: float):
+            if interpolator is None:
+                return None, None
+            try:
+                lat, lng = interpolator.position_at(ts)
+                return lat, lng
+            except Exception:
+                return None, None
+
         job_start = datetime.now(timezone.utc)
+
+        # ── 2. Batch Insert Traffic Windows ───────────────────────────────────
         traffic_windows = []
         for w in result.density_windows:
             w_start_time = (job_start + timedelta(seconds=w.window_start)).isoformat()
@@ -367,80 +458,148 @@ def _persist_results(client, job_id: str, video_id: str, result) -> None:
                 "vehicle_count": w.unique_vehicle_count,
                 "congestion_level": w.density_level.value,
                 "congestion_score": 0.0,
+                "vehicle_distribution": w.class_counts,
             })
         if traffic_windows:
             client.table("traffic_windows").insert(traffic_windows).execute()
             logger.info("[VIDEO] job=%s traffic_windows_inserted count=%d", job_id, len(traffic_windows))
 
-        incidents_to_insert = []
+        # ── 3. Build Incidents + Observations via DeduplicationPipeline ─────────
         evidence_to_insert = []
+        dedup_pipeline = DeduplicationPipeline(client)
 
-        # Prepare Pothole Incidents
+        def _process_event(e, incident_type: str):
+            lat, lng = _gps_at(e.first_seen_timestamp)
+            
+            # If we don't have GPS, we can't reliably dedup. We insert manually as a fallback.
+            if lat is None or lng is None:
+                incident_id = str(uuid.uuid4())
+                first_seen = (job_start + timedelta(seconds=e.first_seen_timestamp)).isoformat()
+                last_seen  = (job_start + timedelta(seconds=e.last_seen_timestamp)).isoformat()
+                
+                inc = {
+                    "id":            incident_id,
+                    "ai_job_id":     job_id,
+                    "incident_type": incident_type,
+                    "severity":      e.estimated_severity.value,
+                    "status":        "OPEN",
+                    "confidence":    e.max_confidence,
+                    "frame_index":   e.first_seen_frame,
+                    "bbox":          e.representative_bbox,
+                    "tracking_id":   str(e.event_id),
+                    "first_seen_at": first_seen,
+                    "last_seen_at":  last_seen,
+                    "observation_count": 1,
+                    "observed_by": [bus_id] if bus_id else [],
+                    "source_mission_id": mission_id,
+                    "metadata": {
+                        "video_id":        video_id,
+                        "mission_id":      mission_id,
+                        "bus_id":          bus_id,
+                        "route_name":      route_name,
+                        "composite_score": e.stability_score,
+                        "video_time_sec":  e.first_seen_timestamp,
+                        "last_video_time_sec": e.last_seen_timestamp,
+                        "total_detections": e.total_detections,
+                    },
+                }
+                
+                if incident_type == "pothole":
+                    inc["metadata"]["description"] = getattr(e, "suppression_reason", None)
+                elif incident_type == "waterlogging":
+                    inc["water_area_ratio"] = getattr(e, "max_area_ratio", None)
+                    inc["metadata"]["polygon"] = getattr(e, "last_polygon", None)
+                    inc["metadata"]["test_mode"] = True
+                
+                try:
+                    client.table("incidents").insert(inc).execute()
+                    client.table("incident_observations").insert({
+                        "incident_id":     incident_id,
+                        "mission_id":      mission_id,
+                        "bus_id":          bus_id,
+                        "video_timestamp": e.first_seen_timestamp,
+                        "confidence":      e.max_confidence,
+                        "bbox":            e.representative_bbox,
+                        "frame_index":     e.first_seen_frame,
+                    }).execute()
+                    evidence_to_insert.append({
+                        "incident_id":  incident_id,
+                        "evidence_type": "video",
+                        "storage_path": f"results/{video_id}_unified.json",
+                    })
+                except Exception as exc:
+                    logger.error("[VIDEO] Failed to insert fallback incident: %s", exc)
+                return
+
+            # Prepare for pipeline
+            detection = {
+                "incident_type": incident_type,
+                "latitude": lat,
+                "longitude": lng,
+                "confidence": e.max_confidence,
+                "video_timestamp": e.first_seen_timestamp,
+                "frame_index": e.first_seen_frame,
+                "bbox": e.representative_bbox,
+            }
+            
+            extra_inc = {
+                "ai_job_id": job_id,
+                "tracking_id": str(e.event_id),
+                "metadata": {
+                    "video_id": video_id,
+                    "mission_id": mission_id,
+                    "bus_id": bus_id,
+                    "route_name": route_name,
+                    "composite_score": e.stability_score,
+                    "video_time_sec": e.first_seen_timestamp,
+                    "last_video_time_sec": e.last_seen_timestamp,
+                    "total_detections": e.total_detections,
+                }
+            }
+            
+            if incident_type == "pothole":
+                extra_inc["metadata"]["description"] = getattr(e, "suppression_reason", None)
+            elif incident_type == "waterlogging":
+                extra_inc["water_area_ratio"] = getattr(e, "max_area_ratio", None)
+                extra_inc["metadata"]["polygon"] = getattr(e, "last_polygon", None)
+                extra_inc["metadata"]["test_mode"] = True
+
+            try:
+                res = dedup_pipeline.process(
+                    detection=detection,
+                    mission_id=mission_id,
+                    bus_id=bus_id or "UNKNOWN",
+                    extra_incident_fields=extra_inc,
+                )
+                evidence_to_insert.append({
+                    "incident_id":  res["incident_id"],
+                    "evidence_type": "video",
+                    "storage_path": f"results/{video_id}_unified.json",
+                })
+            except Exception as exc:
+                logger.error("[VIDEO] dedup_pipeline failed for %s: %s", incident_type, exc)
+
+        # ── Pothole events ────────────────────────────────────────────────────
         for e in result.pothole_events:
-            incident_id = str(uuid.uuid4())
-            incidents_to_insert.append({
-                "id": incident_id,
-                "ai_job_id": job_id,
-                "incident_type": "pothole",
-                "severity": e.estimated_severity.value,
-                "status": "OPEN",
-                "confidence": e.max_confidence,
-                "frame_index": e.first_seen_frame,
-                "bbox": e.representative_bbox,
-                "tracking_id": e.event_id,
-                "metadata": {
-                    "description": e.suppression_reason,
-                    "composite_score": e.stability_score,
-                    "video_time_sec": e.first_seen_timestamp,
-                },
-            })
-            evidence_to_insert.append({
-                "incident_id": incident_id,
-                "evidence_type": "video",
-                "storage_path": f"results/{video_id}_unified.json",
-            })
+            _process_event(e, "pothole")
 
-        # Prepare Waterlogging Incidents
+        # ── Waterlogging events ───────────────────────────────────────────────
         for e in result.waterlogging_events:
-            incident_id = str(uuid.uuid4())
-            incidents_to_insert.append({
-                "id": incident_id,
-                "ai_job_id": job_id,
-                "incident_type": "waterlogging",
-                "severity": e.estimated_severity.value,
-                "status": "OPEN",
-                "confidence": e.max_confidence,
-                "frame_index": e.first_seen_frame,
-                "bbox": e.representative_bbox,
-                "tracking_id": e.event_id,
-                "water_area_ratio": e.max_area_ratio,
-                "metadata": {
-                    "polygon": e.last_polygon,
-                    "composite_score": e.stability_score,
-                    "video_time_sec": e.first_seen_timestamp,
-                },
-            })
-            evidence_to_insert.append({
-                "incident_id": incident_id,
-                "evidence_type": "video",
-                "storage_path": f"results/{video_id}_unified.json",
-            })
+            _process_event(e, "waterlogging")
 
-        # Bulk Insert Incidents and Evidence (100-per-batch to avoid Supabase row limits)
+        # ── Insert Evidence ───────────────────────────────────────────────────
         BATCH_SIZE = 100
-        for i in range(0, len(incidents_to_insert), BATCH_SIZE):
-            batch = incidents_to_insert[i:i + BATCH_SIZE]
-            resp = client.table("incidents").insert(batch).execute()
-            if not resp.data:
-                logger.error("[VIDEO] job=%s incident_batch_insert FAILED batch_start=%d", job_id, i)
-            else:
-                logger.info("[VIDEO] job=%s incident_batch_insert ok count=%d", job_id, len(batch))
-
         for i in range(0, len(evidence_to_insert), BATCH_SIZE):
             batch = evidence_to_insert[i:i + BATCH_SIZE]
             client.table("incident_evidence").insert(batch).execute()
 
-        logger.info("[VIDEO] job=%s db_persist_complete incidents=%d", job_id, len(incidents_to_insert))
+        logger.info(
+            "[VIDEO] job=%s db_persist_complete gps_resolved=%s",
+            job_id,
+            "yes" if interpolator else "no"
+        )
+
+        # Status update is handled by the caller based on final_status
 
     except Exception as db_exc:
         logger.error("[VIDEO] job=%s db_persist FAILED: %s", job_id, db_exc, exc_info=True)
@@ -453,3 +612,4 @@ def _find_video(video_id: str) -> Path | None:
         if path.exists():
             return path
     return None
+

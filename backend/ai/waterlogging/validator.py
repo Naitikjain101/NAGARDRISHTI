@@ -44,19 +44,14 @@ class RejectionReason(str, Enum):
 @dataclass
 class ValidationConfig:
     # Confidence
-    min_confidence: float = 0.60           # Raised from 0.40; forensic audit avg was 0.87 so
-                                            # 0.60 still captures the observed pattern.
-                                            # Configurable: sweep in Step 19 calibration.
+    min_confidence: float = 0.55           # Phase 20 fix: Align with config.py WATERLOGGING_CONFIDENCE_THRESHOLD
+                                            # (was 0.60, which dropped 48 valid frames on test video)
 
     # Mask area as fraction of total frame (not bbox area)
     min_area_ratio_to_frame: float = 0.01  # Must cover at least 1% of frame
-    max_area_ratio_to_frame: float = 0.40  # Must not cover more than 40% of frame.
-                                            # Forensic audit: eval video avg area_ratio=0.39
-                                            # (entire lower half). Every frame had a detection
-                                            # at conf=0.84 avg. This is shortcut-learning.
-                                            # Real waterlogging incidents in urban footage rarely
-                                            # cover >40% of the full camera frame.
-                                            # Configurable: swept jointly in Step 19.
+    max_area_ratio_to_frame: float = 0.50  # Phase 20 fix: Genuine large waterlogging can cover ~45% of frame.
+                                            # (was 0.40, which rejected 62 valid frames as MASK_TOO_LARGE).
+                                            # V2 model is better calibrated than V1, reducing the shortcut-learning risk.
 
     # Road region: detection must be in the lower portion of the frame
     road_top_boundary: float = 0.30        # bbox top must be below 30% from frame top

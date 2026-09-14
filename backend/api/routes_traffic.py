@@ -10,13 +10,8 @@ router = APIRouter(prefix="/api/traffic", tags=["traffic"])
 def _record_to_dict(window: dict) -> dict:
     """Convert Supabase dict to API response format."""
     
-    # Parse by_class from individual columns if they exist
-    by_class = {
-        "car": window.get("car_count", 0),
-        "motorcycle": window.get("motorcycle_count", 0),
-        "bus": window.get("bus_count", 0),
-        "truck": window.get("truck_count", 0)
-    }
+    # Parse by_class from vehicle_distribution JSONB column
+    by_class = window.get("vehicle_distribution", {})
     
     return {
         "window_start": window.get("start_time"),

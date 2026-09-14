@@ -60,6 +60,17 @@ async def list_missions():
     return {"missions": missions, "count": len(missions)}
 
 
+@router.get("/api/missions/{mission_id}")
+async def get_mission(mission_id: str):
+    """Get single demo mission details."""
+    client = get_supabase()
+    repo   = MissionRepository(client)
+    mission = repo.get_mission(mission_id)
+    if not mission:
+        _mission_not_found(mission_id)
+    return mission
+
+
 @router.post("/api/missions/register")
 async def register_mission(payload: Dict[str, Any] = Body(...)):
     """
@@ -85,6 +96,155 @@ async def register_mission(payload: Dict[str, Any] = Body(...)):
         "message":      "Mission registered successfully",
     }
 
+
+from pydantic import BaseModel
+
+class RoutePointRequest(BaseModel):
+    lat: float
+    lng: float
+
+class JourneyCreateRequest(BaseModel):
+    bus_id: str
+    bus_name: str
+    journey_name: str
+    video_id: str
+    video_filename: str
+    duration: float
+    start_location: str = ""
+    destination: str = ""
+    route_points: list[RoutePointRequest] = []
+    status: str = "QUEUED"
+
+@router.post("/api/missions/journey")
+async def create_journey(req: JourneyCreateRequest):
+    """
+    Create a new journey from an uploaded video.
+    This replaces the legacy demo ingestion flow for the Phase 1 & 2 UI.
+    """
+    client = get_supabase()
+    
+    # 1. Ensure Bus exists
+    bus_resp = client.table("buses").select("*").eq("fleet_number", req.bus_id).execute()
+    if not bus_resp.data:
+        # Create it
+        client.table("buses").insert({
+            "fleet_number": req.bus_id,
+            "route_id": req.bus_name, # Storing Bus Name in route_id as per schema
+            "status": "ONLINE"
+        }).execute()
+        
+    # 2. Insert Journey (demo_missions)
+    # Using QUEUED status as required by Phase 1 instructions
+    mission_row = {
+        "bus_id": req.bus_id,
+        "route_id": req.bus_id,
+        "route_name": req.journey_name,
+        "video_filename": f"{req.video_id}_{req.video_filename}", # Unique name 
+        "duration_seconds": req.duration,
+        "status": req.status,
+        "metadata": {
+            "bus_name": req.bus_name,
+            "video_id": req.video_id,
+            "original_filename": req.video_filename,
+            "start_location": req.start_location,
+            "destination": req.destination
+        }
+    }
+    
+    res = client.table("demo_missions").insert(mission_row).execute()
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to create journey in database")
+        
+    record = res.data[0]
+    mission_id = record["id"]
+
+    # 3. Insert Route Points if provided (Phase 2)
+    if req.route_points:
+        num_points = len(req.route_points)
+        # We need to distribute the `req.duration` across these points.
+        # If duration is 0, we'll just space them out by 1 second for sanity.
+        total_time = req.duration if req.duration > 0 else float(num_points)
+        
+        db_points = []
+        for i, pt in enumerate(req.route_points):
+            # Synthetic deterministic timestamp
+            # NOTE: This is a synthetic timing for Phase 2 demo purposes only
+            synthetic_ts = (i / max(1, num_points - 1)) * total_time if num_points > 1 else 0.0
+            
+            db_points.append({
+                "mission_id": mission_id,
+                "timestamp_seconds": synthetic_ts,
+                "latitude": pt.lat,
+                "longitude": pt.lng
+            })
+            
+        # Supabase API allows bulk inserts
+        client.table("route_points").insert(db_points).execute()
+
+    return {
+        "mission_id": mission_id,
+        "bus_id": record["bus_id"],
+        "route_name": record["route_name"],
+        "status": record["status"],
+        "message": "Journey queued successfully",
+    }
+
+
+class JourneyUpdateRequest(BaseModel):
+    journey_name: Optional[str] = None
+    bus_name: Optional[str] = None
+    bus_id: Optional[str] = None
+
+@router.patch("/api/missions/{mission_id}")
+async def update_journey(mission_id: str, req: JourneyUpdateRequest):
+    client = get_supabase()
+    
+    updates = {}
+    if req.journey_name:
+        updates["route_name"] = req.journey_name
+    if req.bus_id:
+        updates["bus_id"] = req.bus_id
+        updates["route_id"] = req.bus_id
+        
+    if not updates and not req.bus_name:
+        return {"message": "No updates provided"}
+        
+    resp = client.table("demo_missions").select("metadata").eq("id", mission_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Journey not found")
+        
+    metadata = resp.data[0].get("metadata") or {}
+    if req.bus_name:
+        metadata["bus_name"] = req.bus_name
+        updates["metadata"] = metadata
+        
+    if updates:
+        client.table("demo_missions").update(updates).eq("id", mission_id).execute()
+        
+    return {"message": "Journey updated successfully"}
+
+
+@router.delete("/api/missions/{mission_id}")
+async def delete_journey(mission_id: str):
+    client = get_supabase()
+    
+    # 0. Get bus_id before deleting
+    mission_resp = client.table("demo_missions").select("bus_id").eq("id", mission_id).execute()
+    bus_id = mission_resp.data[0]["bus_id"] if mission_resp.data else None
+    
+    # 1. Delete associated route points
+    client.table("route_points").delete().eq("mission_id", mission_id).execute()
+    
+    # 2. Delete from demo_missions
+    res = client.table("demo_missions").delete().eq("id", mission_id).execute()
+    
+    # 3. Clean up orphaned bus if no journeys left
+    if bus_id:
+        remaining = client.table("demo_missions").select("id").eq("bus_id", bus_id).execute()
+        if not remaining.data or len(remaining.data) == 0:
+            client.table("buses").delete().eq("fleet_number", bus_id).execute()
+            
+    return {"message": "Journey deleted successfully"}
 
 @router.post("/api/missions/{mission_id}/start")
 async def start_mission(mission_id: str, mode: str = Query(default="replay")):
@@ -332,7 +492,8 @@ async def get_map_incidents(
 
     q = client.table("incidents") \
         .select("id, incident_type, severity, status, confidence, latitude, longitude, "
-                "observation_count, observed_by, dedup_status, first_seen_at, last_seen_at") \
+                "observation_count, observed_by, dedup_status, first_seen_at, last_seen_at, "
+                "maintenance_actions(*)") \
         .not_.is_("latitude", "null") \
         .not_.is_("longitude", "null") \
         .gte("confidence", min_confidence)
@@ -369,6 +530,7 @@ async def get_map_buses():
             "mission_id":        s.mission_id,
             "bus_id":            s.bus_id,
             "route_name":        s.route_name,
+            "current_timestamp": s.current_timestamp,
             "current_lat":       s.current_lat,
             "current_lng":       s.current_lng,
             "speed_kmh":         s.speed_kmh,

@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { name: 'Overview', href: '/', icon: LayoutDashboard },
-  { name: 'Live Map', href: '/map', icon: Map },
+  { name: 'Live Map (Command Center)', href: '/map', icon: Map },
+  { name: 'Fleet Consensus Replay', href: '/fleet-replay', icon: Navigation },
   { name: 'Live Monitoring', href: '/monitoring', icon: Activity },
   { name: 'Video Analysis', href: '/video', icon: Video },
   { name: 'Road Intelligence', href: '/road-intelligence', icon: MapPin },

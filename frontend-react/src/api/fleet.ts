@@ -10,6 +10,24 @@ export interface BusTelemetry {
   heading: number;
 }
 
+export interface Journey {
+  id: string;
+  bus_id: string;
+  route_id: string;
+  route_name: string;
+  video_filename: string;
+  duration_seconds: number;
+  status: string;
+  metadata?: {
+    bus_name?: string;
+    video_id?: string;
+    original_filename?: string;
+    start_location?: string;
+    destination?: string;
+  };
+  created_at: string;
+}
+
 export interface Bus {
   id: string;
   fleet_number: string;
@@ -18,6 +36,7 @@ export interface Bus {
   camera_status: string;
   ai_status: string;
   latest_telemetry?: BusTelemetry;
+  journeys?: Journey[];
 }
 
 export const fleetApi = {

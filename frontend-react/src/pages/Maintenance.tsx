@@ -1,6 +1,9 @@
 import { Wrench, CheckCircle, Clock, AlertTriangle, Plus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { maintenanceApi } from '@/api/maintenance';
+import { useState } from 'react';
+import { IncidentDrawer } from '@/components/incidents/IncidentDrawer';
+import type { Incident } from '@/api/fleet';
 
 export function Maintenance() {
   const { data: tasks, isLoading } = useQuery({
@@ -8,8 +11,10 @@ export function Maintenance() {
     queryFn: maintenanceApi.getTasks
   });
 
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+
   const columns = [
-    { id: 'OPEN', title: 'OPEN / UNASSIGNED', icon: AlertTriangle, color: 'text-red-500' },
+    { id: 'UNASSIGNED', title: 'UNASSIGNED', icon: AlertTriangle, color: 'text-red-500' },
     { id: 'ASSIGNED', title: 'ASSIGNED', icon: Clock, color: 'text-orange-500' },
     { id: 'IN_PROGRESS', title: 'IN PROGRESS', icon: Wrench, color: 'text-blue-500' },
     { id: 'RESOLVED', title: 'RESOLVED', icon: CheckCircle, color: 'text-emerald-500' },
@@ -55,21 +60,28 @@ export function Maintenance() {
                   </div>
                 ) : (
                   colTasks.map(task => (
-                    <div key={task.id} className="bg-card border border-border rounded-md p-3 shadow-sm text-sm">
+                    <div 
+                      key={task.id} 
+                      className="bg-card border border-border rounded-md p-3 shadow-sm text-sm cursor-pointer hover:border-primary/50 hover:bg-secondary/20 transition-colors"
+                      onClick={() => {
+                        // The backend query returns incident as `incidents` (join).
+                        // @ts-ignore - Supabase returns join object as 'incidents'
+                        const incident = task.incidents as Incident;
+                        if (incident) setSelectedIncident(incident);
+                      }}
+                    >
                       <div className="flex justify-between items-start mb-1">
-                        <span className="font-semibold">{task.title}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium ${
-                          task.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-500' :
-                          task.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
-                          'bg-blue-500/10 text-blue-500'
-                        }`}>
-                          {task.severity}
+                        <span className="font-semibold">{task.action_type}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {task.id.split('-')[0].toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{task.description}</p>
+                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                        {task.assigned_department}
+                      </p>
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>{new Date(task.created_at).toLocaleDateString()}</span>
-                        {task.assigned_to && <span>{task.assigned_to}</span>}
+                        {task.assigned_team && <span>{task.assigned_team}</span>}
                       </div>
                     </div>
                   ))
@@ -79,6 +91,12 @@ export function Maintenance() {
           );
         })}
       </div>
+
+      <IncidentDrawer 
+        incident={selectedIncident} 
+        isOpen={!!selectedIncident} 
+        onClose={() => setSelectedIncident(null)} 
+      />
     </div>
   );
 }

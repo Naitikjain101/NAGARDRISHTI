@@ -1,20 +1,31 @@
 import sys
-import json
+import os
+import uuid
 from ai.unified.processor import UnifiedVideoProcessor
 
-def main():
+def main(video_path, results_dir="/Users/naitikjain/Documents/Nagardristi2.0/backend/results/test"):
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir, exist_ok=True)
     processor = UnifiedVideoProcessor()
-    video_path = "/Users/naitikjain/Documents/Nagardristi2.0/backend/uploads/88f3aefd-d6ef-44fe-9564-bcec63ec960e.mp4"
-    results_dir = "/Users/naitikjain/Documents/Nagardristi2.0/backend/results/test"
-    print("Processing video...")
-    result_path = processor.process(video_path, "test_job_id", results_dir)
-    print("Parsing results...")
-    with open(f"{results_dir}/test_job_id_unified.json") as f:
-        result = json.load(f)
-    events = result.get("pothole_events", [])
+    job_id = f"test_{uuid.uuid4().hex[:8]}"
+    print(f"Processing video {video_path}...")
+    result_summary = processor.process(video_path, job_id, results_dir)
+        
+    print("\n--- POTHOLES ---")
+    events = result_summary.pothole_events
     print(f"Total pothole events: {len(events)}")
-    confirmed = [e for e in events if e.get("status") == "confirmed"]
-    print(f"Confirmed pothole events: {len(confirmed)}")
+    for ev in events:
+        if getattr(ev, 'max_confidence', 0) >= 0.65 or ev.max_confidence >= 0.65:
+            print(f"Timestamp: {ev.first_seen_timestamp}s - {ev.last_seen_timestamp}s | Conf: {ev.max_confidence} | BBox: {ev.representative_bbox} | Detections: {ev.total_detections}")
+
+    print("\n--- WATERLOGGING ---")
+    wl_events = result_summary.waterlogging_events
+    print(f"Total waterlogging events: {len(wl_events)}")
+    for ev in wl_events:
+        print(f"Timestamp: {ev.first_seen_timestamp}s - {ev.last_seen_timestamp}s | Conf: {ev.max_confidence} | Detections: {ev.total_detections}")
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        print("Usage: python backend/test_processor.py <video_path>")

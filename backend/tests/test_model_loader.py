@@ -45,56 +45,57 @@ def test_validate_required_classes_all_present():
 
 
 def test_validate_required_classes_missing():
-    """Model missing 'bus' and 'truck' must fail validation."""
+    """Model missing 'BUS' and 'TRUCK' must fail validation."""
     ok, missing = validate_required_classes(INCOMPLETE_MODEL_NAMES)
     assert ok is False
-    assert "bus" in missing
-    assert "truck" in missing
+    assert "BUS" in missing
+    assert "TRUCK" in missing
 
 
 def test_get_vehicle_class_ids():
     """Vehicle class IDs must be extracted from model.names."""
     ids = get_vehicle_class_ids(COCO_MODEL_NAMES)
-    # Should include car=2, motorcycle=3, bus=5, truck=7, bicycle=1
-    assert 2 in ids  # car
-    assert 3 in ids  # motorcycle
-    assert 5 in ids  # bus
-    assert 7 in ids  # truck
-    assert 1 in ids  # bicycle
-    # Should NOT include person=0
+    # Should include CAR=2, MOTORCYCLE=3, BUS=5, TRUCK=7, BICYCLE=1
+    assert 2 in ids  # CAR
+    assert 3 in ids  # MOTORCYCLE
+    assert 5 in ids  # BUS
+    assert 7 in ids  # TRUCK
+    assert 1 in ids  # BICYCLE
+    # Should NOT include PERSON=0
     assert 0 not in ids
 
 
 def test_get_phase1_class_ids_includes_person():
-    """Phase 1 class IDs include person (for pedestrian tracking)."""
+    """Phase 1 class IDs include PERSON (for pedestrian tracking)."""
     ids = get_phase1_class_ids(COCO_MODEL_NAMES)
-    assert 0 in ids  # person
+    assert 0 in ids  # PERSON
 
 
 def test_is_vehicle_class_positive():
     """Vehicle class names return True."""
-    for cls in ["car", "motorcycle", "bus", "truck", "bicycle"]:
+    for cls in ["CAR", "MOTORCYCLE", "BUS", "TRUCK", "BICYCLE"]:
         assert is_vehicle_class(cls) is True
 
 
 def test_is_vehicle_class_negative():
     """Non-vehicle classes return False."""
-    for cls in ["person", "airplane", "boat", "train", "cat", "pothole"]:
+    for cls in ["PERSON", "AIRPLANE", "BOAT", "TRAIN", "CAT", "POTHOLE"]:
         assert is_vehicle_class(cls) is False
 
 
 def test_vehicle_classes_subset_of_phase1():
-    """VEHICLE_CLASSES must be a subset of PHASE1_REQUIRED_CLASSES (minus person)."""
-    # All vehicle classes should be in the required set
-    assert VEHICLE_CLASSES.issubset(PHASE1_REQUIRED_CLASSES)
+    """VEHICLE_CLASSES must be a subset of PHASE1_REQUIRED_CLASSES (minus person, minus auto_rickshaw)."""
+    # All vehicle classes should be in the required set except AUTO_RICKSHAW which is optional
+    required_subset = VEHICLE_CLASSES - {"AUTO_RICKSHAW"}
+    assert required_subset.issubset(PHASE1_REQUIRED_CLASSES)
 
 
 def test_phase1_includes_person():
-    """Phase 1 required classes must include 'person'."""
-    assert "person" in PHASE1_REQUIRED_CLASSES
+    """Phase 1 required classes must include 'PERSON'."""
+    assert "PERSON" in PHASE1_REQUIRED_CLASSES
 
 
 def test_no_fake_class_mapping():
-    """Verifies that classes like 'pothole' are NOT in PHASE1_REQUIRED_CLASSES."""
-    forbidden = {"pothole", "helmet", "nohelmet", "waterlogging", "road_damage"}
+    """Verifies that classes like 'POTHOLE' are NOT in PHASE1_REQUIRED_CLASSES."""
+    forbidden = {"POTHOLE", "HELMET", "NOHELMET", "WATERLOGGING", "ROAD_DAMAGE"}
     assert len(forbidden.intersection(PHASE1_REQUIRED_CLASSES)) == 0

@@ -25,7 +25,6 @@ from ai.common.schemas import (
     DeviceResponse,
     ProcessingStatus,
 )
-from video.processor import VideoProcessor
 from db.supabase_client import get_supabase
 from db.repository import AIJobRepository
 
@@ -53,6 +52,101 @@ async def get_device():
         mps_available=info.mps_available,
         torch_version=info.torch_version,
     )
+
+from ai.models.registry import get_all_models, set_active_model, rollback_active_model
+from pydantic import BaseModel
+
+from typing import Optional
+
+class ModelSwitchRequest(BaseModel):
+    task: str
+    model_id: str
+    confidence_threshold: Optional[float] = None
+
+class ModelConfidenceUpdateRequest(BaseModel):
+    task: str
+    model_id: str
+    confidence_threshold: float
+
+@router.get("/models")
+async def get_models():
+    """Return all registered models with active/previous/file_exists flags."""
+    return get_all_models()
+
+@router.get("/models/{task}")
+async def get_task_models(task: str):
+    """Return models for a single task."""
+    all_models = get_all_models()
+    task_upper = task.upper()
+    if task_upper not in all_models:
+        raise HTTPException(status_code=404, detail=f"Unknown task: {task}")
+    return all_models[task_upper]
+
+@router.post("/models/active")
+async def switch_active_model(req: ModelSwitchRequest):
+    """
+    Switch the active model for a task (by model_id).
+
+    The frontend sends only model_id — the backend resolves it to a
+    trusted registry path. Does NOT reload running model cache;
+    takes effect on next server start or explicit reload.
+    """
+    try:
+        set_active_model(req.task, req.model_id, req.confidence_threshold)
+        return {
+            "status": "success",
+            "message": f"Switched {req.task} → {req.model_id}",
+            "note": "Restart server or reload cache for change to take effect in processing pipeline."
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/models/confidence")
+async def update_model_confidence(req: ModelConfidenceUpdateRequest):
+    """
+    Update the confidence threshold for a specific task and model without switching.
+    """
+    try:
+        set_active_model(req.task, req.model_id, req.confidence_threshold)
+        return {
+            "status": "success",
+            "message": f"Updated confidence for {req.task} ({req.model_id}) to {req.confidence_threshold}",
+            "note": "Takes effect for new video processing jobs."
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/models/rollback/{task}")
+async def rollback_model(task: str):
+    """
+    Rollback the active model for a task to its previous selection.
+
+    Safe: only changes the active model ID config — does NOT delete data,
+    reprocess videos, or modify incidents/journeys/evidence.
+    """
+    try:
+        prev_model_id = rollback_active_model(task.upper())
+        if prev_model_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No previous model selection found for task {task}."
+            )
+        return {
+            "status": "success",
+            "task": task.upper(),
+            "rolled_back_to": prev_model_id,
+            "note": "Restart server or reload cache for change to take effect in processing pipeline."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 @router.post("/process/{video_id}")
 async def process_video(video_id: str, background_tasks: BackgroundTasks):
@@ -169,45 +263,53 @@ async def get_results(video_id: str):
         )
 
 def _run_processing(job_id: str, video_id: str, video_path: str) -> None:
-    """Background task that runs the full AI pipeline."""
+    """
+    Background task: runs UnifiedVideoProcessor (same as Fleet pipeline).
+    
+    Phase 12.5 Fix: both Video Analyze and Fleet now use the SAME processor,
+    the SAME model (yolo26m_pothole_best.pt SHA 8e5da7c4), and the SAME thresholds.
+    """
     client = get_supabase()
     repo = AIJobRepository(client)
     
     repo.update_status(job_id=job_id, status=ProcessingStatus.RUNNING)
 
-    def progress_callback(done: int, total: int) -> None:
-        # Avoid spamming the DB on every single frame, maybe every 10 frames or so.
-        # But for now, we just update. In a real app we'd debounce this.
-        if done % 5 == 0 or done == total:
-            repo.update_status(job_id=job_id, status=ProcessingStatus.RUNNING, progress_frames=done, total_frames=total)
+    def progress_callback(done: int, total: int, **kwargs) -> None:
+        if done % 10 == 0 or done == total:
+            repo.update_status(
+                job_id=job_id,
+                status=ProcessingStatus.RUNNING,
+                progress_frames=done,
+                total_frames=total,
+            )
 
     try:
-        processor = VideoProcessor()
-        # We pass job_id so the processor can link incidents to this job!
-        # Note: We need to modify VideoProcessor to accept job_id
-        result = processor.process(
+        from ai.unified.processor import UnifiedVideoProcessor
+        from ai.unified.schemas import UnifiedVideoSummary
+
+        processor = UnifiedVideoProcessor()
+        result: UnifiedVideoSummary = processor.process(
             video_path=video_path,
             video_id=video_id,
-            job_id=job_id, # Added this!
             results_dir=str(RESULTS_DIR),
             progress_callback=progress_callback,
         )
 
+        from ai.common.schemas import ProcessingStatus as PS
         final_status = (
-            ProcessingStatus.COMPLETE
-            if result.status == ProcessingStatus.COMPLETE
-            else ProcessingStatus.FAILED
+            PS.COMPLETE
+            if result.status in (PS.COMPLETED, PS.COMPLETE)
+            else PS.FAILED
         )
-        
-        # update completion
+
         client.table("ai_jobs").update({
             "status": final_status,
-            "error": result.error,
-            "frames_processed": result.progress_frames if hasattr(result, 'progress_frames') else None,
+            "error": result.error if hasattr(result, "error") else None,
+            "frames_processed": result.processing.total_frames if result.processing else None,
             "completed_at": "now()"
         }).eq("id", job_id).execute()
 
-        logger.info("Processing complete: %s — status=%s", video_id, final_status)
+        logger.info("Processing complete: %s — status=%s potholes=%d", video_id, final_status, len(result.pothole_events or []))
 
     except Exception as exc:
         logger.error("Processing failed for %s: %s", video_id, exc, exc_info=True)

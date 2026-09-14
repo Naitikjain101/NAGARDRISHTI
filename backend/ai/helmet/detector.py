@@ -161,13 +161,24 @@ class HelmetEventTracker:
 # Helmet Detector
 # ---------------------------------------------------------------------------
 
+from ai.models.registry import get_active_model
+
 @dataclass
 class HelmetDetectorConfig:
-    model_path: str = HELMET_MODEL_PATH
+    model_path: Optional[str] = None
     imgsz: int = HELMET_IMGSZ
-    confidence_threshold: float = HELMET_CONFIDENCE_THRESHOLD
+    confidence_threshold: Optional[float] = None
     iou_threshold: float = HELMET_IOU_THRESHOLD
     device: Optional[str] = None
+
+    def __post_init__(self):
+        active_model = get_active_model("HELMET")
+        if self.model_path is None:
+            self.model_path = active_model.get("model_path", HELMET_MODEL_PATH)
+        if self.confidence_threshold is None:
+            self.confidence_threshold = active_model.get("confidence_threshold", HELMET_CONFIDENCE_THRESHOLD)
+        self.model_id = active_model.get("model_id")
+        self.sha256 = active_model.get("sha256")
 
 
 class HelmetDetector:

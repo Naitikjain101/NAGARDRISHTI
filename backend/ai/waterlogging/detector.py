@@ -1,12 +1,17 @@
 """
 Urban Watch — Waterlogging Detector
 Runs segmentation inference to detect road waterlogging.
+
+Phase 19: WaterloggingDetectorConfig now reads from the central model registry
+when no explicit model_path is provided. This mirrors PotholeDetectorConfig
+behaviour and ensures the waterlogging detector honours the active model
+selected via the Model Lab UI.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -27,11 +32,44 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class WaterloggingDetectorConfig:
-    model_path: str = DEFAULT_WATERLOGGING_MODEL
+    """
+    Configuration for the waterlogging detector.
+
+    When model_path is None (default), the path and confidence are resolved
+    from the central model registry (ai.models.registry) using the currently
+    active WATERLOGGING model. Pass an explicit model_path only for the
+    isolated Pothole Lab / benchmark flows.
+    """
+    model_path: Optional[str] = None
     imgsz: int = WATERLOGGING_IMGSZ
-    confidence_threshold: float = WATERLOGGING_CONFIDENCE_THRESHOLD
+    confidence_threshold: Optional[float] = None
     iou_threshold: float = WATERLOGGING_IOU_THRESHOLD
     device: Optional[str] = None
+    model_id: Optional[str] = None
+    sha256: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.model_path is None or self.confidence_threshold is None:
+            try:
+                from ai.models.registry import get_active_model
+                reg = get_active_model("WATERLOGGING")
+                if self.model_path is None:
+                    self.model_path = reg["model_path"]
+                if self.confidence_threshold is None:
+                    self.confidence_threshold = reg.get(
+                        "confidence_threshold", WATERLOGGING_CONFIDENCE_THRESHOLD
+                    )
+                self.model_id = reg.get("model_id")
+                self.sha256   = reg.get("sha256")
+            except Exception as exc:
+                # Graceful fallback to hardcoded defaults if registry unavailable
+                logger.warning(
+                    "[WATERLOGGING] Registry lookup failed, using config defaults: %s", exc
+                )
+                if self.model_path is None:
+                    self.model_path = DEFAULT_WATERLOGGING_MODEL
+                if self.confidence_threshold is None:
+                    self.confidence_threshold = WATERLOGGING_CONFIDENCE_THRESHOLD
 
 
 class ModelNotFoundError(Exception):
@@ -78,6 +116,7 @@ class WaterloggingDetector:
         frame: np.ndarray,
         frame_index: int = 0,
         timestamp: float = 0.0,
+        confidence_threshold: Optional[float] = None,
     ) -> Tuple[List[WaterloggingDetection], FrameTimer]:
         if not self._is_loaded or self._model is None:
             self.load()
@@ -85,12 +124,14 @@ class WaterloggingDetector:
         frame_timer = FrameTimer()
         orig_h, orig_w = frame.shape[:2]
 
+        conf_to_use = confidence_threshold if confidence_threshold is not None else self.config.confidence_threshold
+
         with timer() as t:
             # We enforce task="segment" if using a segmentation model.
             results = self._model.predict(
                 source=frame,
                 imgsz=self.config.imgsz,
-                conf=self.config.confidence_threshold,
+                conf=conf_to_use,
                 device=self.config.device,
                 verbose=False,
                 stream=False,

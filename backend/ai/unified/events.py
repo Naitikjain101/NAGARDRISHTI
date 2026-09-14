@@ -9,7 +9,7 @@ Wraps the PotholeEventTracker to inject:
 5. Forensic Accounting (RejectionStats)
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import logging
 
 from ai.pothole.tracker import PotholeEventTracker
@@ -68,10 +68,17 @@ class UnifiedEventEngine:
         timestamp: float,
         raw_detections: List[PotholeDetection],
         vehicle_tracks: List[TrackResult]
-    ) -> List[int]:
+    ) -> Tuple[List[int], List[PotholeDetection]]:
         """
         Filters detections BEFORE sending them to the temporal tracker.
-        Returns active event IDs.
+
+        Returns
+        -------
+        Tuple[List[int], List[PotholeDetection]]
+            (active_event_ids, accepted_detections) — parallel arrays:
+            accepted_detections[i] corresponds to active_event_ids[i].
+            Accepted detections are ROI/geometry-filtered but not yet
+            confirmed — the event IDs tell you which event each belongs to.
         """
         self.rejection_stats.total_raw += len(raw_detections)
         filtered_detections: List[PotholeDetection] = []
@@ -118,7 +125,7 @@ class UnifiedEventEngine:
                 self._event_metadata[ev_id]["suppression_reason"] = reason
                 self._event_metadata[ev_id]["overlapping_vehicle_track_id"] = track_id
                 
-        return active_ids
+        return active_ids, filtered_detections
 
     def finalize(self) -> List[UnifiedPotholeEvent]:
         """Finalize tracking and return unified events."""
@@ -209,7 +216,15 @@ class WaterloggingEventEngine:
         timestamp: float,
         raw_detections: List[WaterloggingDetection],
         vehicle_tracks: List[TrackResult]
-    ) -> List[int]:
+    ) -> Tuple[List[int], List[WaterloggingDetection]]:
+        """
+        Validates then feeds accepted detections to the temporal tracker.
+
+        Returns
+        -------
+        Tuple[List[int], List[WaterloggingDetection]]
+            (active_event_ids, accepted_detections) — parallel arrays.
+        """
         self.rejection_stats.total_raw += len(raw_detections)
         self.forensic_raw_count += len(raw_detections)
         
@@ -234,7 +249,7 @@ class WaterloggingEventEngine:
                 })
         
         active_ids = self.tracker.update(frame_index, timestamp, accepted_detections)
-        return active_ids
+        return active_ids, accepted_detections
 
     def finalize(self) -> List[UnifiedWaterloggingEvent]:
         raw_events = self.tracker.get_events(flush=True)

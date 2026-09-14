@@ -169,6 +169,8 @@ class DeduplicationPipeline:
         detection: Dict[str, Any],
         mission_id: Optional[str],
         bus_id: str,
+        extra_incident_fields: Optional[Dict[str, Any]] = None,
+        extra_observation_fields: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Process one GPS-resolved detection through L3+L4 deduplication.
@@ -225,7 +227,7 @@ class DeduplicationPipeline:
             new_dedup      = "CONFIRMED" if should_confirm_incident(obs_count, observed_by) else "PENDING"
 
             # Update incident
-            self.client.table("incidents").update({
+            update_data = {
                 "observation_count": obs_count,
                 "observed_by":       observed_by,
                 "confidence":        merged_conf,
@@ -233,7 +235,19 @@ class DeduplicationPipeline:
                 "dedup_status":      new_dedup,
                 "last_seen_at":      now,
                 "updated_at":        now,
-            }).eq("id", incident_id).execute()
+            }
+            if extra_incident_fields:
+                # Merge metadata carefully if present
+                if "metadata" in extra_incident_fields:
+                    existing_metadata = existing.get("metadata") or {}
+                    existing_metadata.update(extra_incident_fields["metadata"])
+                    update_data["metadata"] = existing_metadata
+                    
+                for k, v in extra_incident_fields.items():
+                    if k != "metadata":
+                        update_data[k] = v
+                        
+            self.client.table("incidents").update(update_data).eq("id", incident_id).execute()
 
             action = "merged"
             obs_count_final = obs_count
@@ -264,6 +278,9 @@ class DeduplicationPipeline:
                 "frame_index":      frame_index,
                 "bbox":             bbox,
             }
+            if extra_incident_fields:
+                new_inc.update(extra_incident_fields)
+                
             resp = self.client.table("incidents").insert(new_inc).execute()
             if not resp.data:
                 raise RuntimeError("Failed to insert new incident into DB")
@@ -278,7 +295,7 @@ class DeduplicationPipeline:
             )
 
         # ── Create observation record (always) ────────────────────────────────
-        obs_resp = self.repo.create_observation({
+        obs_data = {
             "incident_id":     incident_id,
             "mission_id":      mission_id,
             "bus_id":          bus_id,
@@ -288,7 +305,11 @@ class DeduplicationPipeline:
             "confidence":      confidence,
             "bbox":            bbox,
             "frame_index":     frame_index,
-        })
+        }
+        if extra_observation_fields:
+            obs_data.update(extra_observation_fields)
+            
+        obs_resp = self.repo.create_observation(obs_data)
         observation_id = obs_resp["id"] if obs_resp else None
 
         return {

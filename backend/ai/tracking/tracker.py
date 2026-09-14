@@ -40,6 +40,7 @@ from ai.detection.vehicle_suppression import (
     SuppressionDiagnostics,
     VehicleDuplicateSuppressor,
 )
+from ai.detection.classes import to_canonical_class
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,11 @@ class TrackState:
     last_confidence: float = 0.0
     class_history: list[tuple[str, int, float]] = field(default_factory=list)
 
+    # Sustained evidence tracking for class switching
+    candidate_class_id: Optional[int] = None
+    candidate_class: Optional[str] = None
+    candidate_frames: int = 0
+
     @property
     def class_id(self) -> int:
         """Backward compatibility for existing code expecting class_id."""
@@ -89,20 +95,16 @@ class TrackState:
 
 
 def stabilize_class(
-    history: List[Tuple[str, int, float]]
+    state: TrackState,
+    min_frames: int = 5,
+    conf_margin: float = 1.0
 ) -> Tuple[str, int]:
     """
     Stabilize class over a rolling window of recent observations.
     Uses confidence- and recency-weighted majority voting.
-
-    Parameters
-    ----------
-    history : list of (class_name, class_id, confidence)
-
-    Returns
-    -------
-    (stabilized_class_name, stabilized_class_id)
+    Requires sustained evidence (min_frames and conf_margin) to switch the active stabilized class.
     """
+    history = state.class_history
     if not history:
         return "unknown", -1
 
@@ -120,7 +122,40 @@ def stabilize_class(
         weights[c_name] += float(conf) * recency_factor
 
     best_class = max(weights.items(), key=lambda item: item[1])[0]
-    return best_class, id_map[best_class]
+    best_id = id_map[best_class]
+    
+    current_stab_name = state.stabilized_class
+    
+    # If the voting winner is still the current stabilized class, reset candidate and keep it
+    if best_class == current_stab_name:
+        state.candidate_class_id = None
+        state.candidate_class = None
+        state.candidate_frames = 0
+        return current_stab_name, state.stabilized_class_id
+        
+    # There's a new winner in the vote. Check if it wins by the confidence margin.
+    score_diff = weights[best_class] - weights.get(current_stab_name, 0.0)
+    if score_diff >= conf_margin:
+        if state.candidate_class_id == best_id:
+            state.candidate_frames += 1
+        else:
+            state.candidate_class_id = best_id
+            state.candidate_class = best_class
+            state.candidate_frames = 1
+            
+        if state.candidate_frames >= min_frames:
+            # Switch successfully!
+            state.candidate_class_id = None
+            state.candidate_class = None
+            state.candidate_frames = 0
+            return best_class, best_id
+    else:
+        # Didn't beat margin
+        state.candidate_class_id = None
+        state.candidate_class = None
+        state.candidate_frames = 0
+        
+    return current_stab_name, state.stabilized_class_id
 
 
 class ByteTracker:
@@ -140,11 +175,15 @@ class ByteTracker:
         cross_class_iou: float = VEHICLE_CROSS_CLASS_IOU,
         cross_class_iomin: float = VEHICLE_CROSS_CLASS_IOMIN,
         class_history_size: int = VEHICLE_CLASS_HISTORY_SIZE,
+        class_switch_min_frames: int = 5,
+        class_switch_conf_margin: float = 1.0,
     ) -> None:
         self._model = model
         self._tracker_config = tracker_config or "bytetrack.yaml"
         self._device = device
         self.class_history_size = class_history_size
+        self.class_switch_min_frames = class_switch_min_frames
+        self.class_switch_conf_margin = class_switch_conf_margin
 
         # Smart duplicate suppressor
         self._suppressor = VehicleDuplicateSuppressor(
@@ -278,7 +317,7 @@ class ByteTracker:
                         track_id = int(row[4])
                         conf = float(row[5])
                         raw_cls_id = int(row[6])
-                        raw_cls_name = self._model.names.get(raw_cls_id, f"class_{raw_cls_id}")
+                        raw_cls_name = to_canonical_class(self._model.names.get(raw_cls_id, f"class_{raw_cls_id}"))
 
                         if track_id not in self._tracks:
                             self._total_tracks_created += 1
@@ -319,7 +358,11 @@ class ByteTracker:
 
                             # Calculate stabilized class
                             prev_stab_id = state.stabilized_class_id
-                            stab_name, stab_id = stabilize_class(state.class_history)
+                            stab_name, stab_id = stabilize_class(
+                                state, 
+                                min_frames=self.class_switch_min_frames, 
+                                conf_margin=self.class_switch_conf_margin
+                            )
                             state.stabilized_class = stab_name
                             state.stabilized_class_id = stab_id
 

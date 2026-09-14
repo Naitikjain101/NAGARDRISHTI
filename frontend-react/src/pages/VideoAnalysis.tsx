@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, Cpu, FileVideo, Activity, RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, RefreshCw, AlertTriangle, RotateCcw, Cpu, FileVideo, Activity } from 'lucide-react';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
 import { videoApi, type JobStatus, type ProcessingStartResponse, type ProcessingStatusResponse, type VideoUploadResponse } from '@/api/video';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { AddJourneyModal } from '@/components/fleet/AddJourneyModal';
+
 
 // Session storage keys for refresh recovery
 const STORAGE_KEY_VIDEO_ID = 'uw_active_video_id';
@@ -19,7 +20,8 @@ export function VideoAnalysis() {
   const [isProcessing, setIsProcessing]       = useState(false);
   const [processingComplete, setProcessingComplete] = useState(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
-  const [pollError, setPollError]             = useState<string | null>(null);  // transient poll errors
+  const [pollError, setPollError]             = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen]   = useState(false);
   const fileInputRef                          = useRef<HTMLInputElement>(null);
 
   // On mount: if we have a videoId in session, check whether the job is already done/running
@@ -85,29 +87,31 @@ export function VideoAnalysis() {
     enabled: !!videoId && isProcessing,
     refetchInterval: (query) => {
       const status = query.state.data?.status as JobStatus | undefined;
-      if (!status) return 1500;  // not loaded yet, poll every 1.5s
+      if (!status) return 1500;
       if (TERMINAL_STATUSES.includes(status)) {
-        // Terminal — handle transition, then stop polling
-        if (status === 'completed') {
-          setIsProcessing(false);
-          setProcessingComplete(true);
-        } else if (status === 'failed' || status === 'cancelled') {
-          setIsProcessing(false);
-          setProcessingError(query.state.data?.error ?? 'Processing failed with no error message');
-        }
-        return false;  // stop polling
+        return false;
       }
-      return 1500;  // active — poll every 1.5s
+      return 1500;
     },
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     throwOnError: false,
   });
 
-  // Show "Retrying..." if poll is failing transiently
-  const handlePollError = useCallback((err: Error) => {
-    setPollError(`Polling error (retrying): ${err.message}`);
-  }, []);
+
+
+  // Handle terminal status transition in useEffect to avoid React Query state mutation issues
+  useEffect(() => {
+    if (statusData?.status) {
+      if (statusData.status === 'completed') {
+        setIsProcessing(false);
+        setProcessingComplete(true);
+      } else if (statusData.status === 'failed' || statusData.status === 'cancelled') {
+        setIsProcessing(false);
+        setProcessingError(statusData.error ?? 'Processing failed with no error message');
+      }
+    }
+  }, [statusData?.status, statusData?.error]);
 
   // ── Results fetch ────────────────────────────────────────────────────────
   const { data: resultsData } = useQuery({
@@ -249,11 +253,12 @@ export function VideoAnalysis() {
                 <div className="flex justify-between items-end mb-2">
                   <div>
                     <h4 className="font-bold flex items-center gap-2">
-                      <Cpu className="h-4 w-4 text-primary animate-pulse" /> AI Processing Running
+                      <Cpu className="h-4 w-4 text-primary animate-pulse" /> 
+                      {progressPercent === 100 ? 'Finalizing AI Results...' : 'AI Processing Running'}
                     </h4>
                     <p className="text-xs text-muted-foreground">
-                      Status: <span className="font-mono">{statusData?.status ?? 'queued'}</span>
-                      {statusData?.processing_fps ? ` · ${statusData.processing_fps.toFixed(1)} fps` : ''}
+                      Status: <span className="font-mono">{progressPercent === 100 ? 'finalizing' : (statusData?.status ?? 'queued')}</span>
+                      {statusData?.processing_fps && progressPercent < 100 ? ` · ${statusData.processing_fps.toFixed(1)} fps` : ''}
                     </p>
                     {/* Transient poll error */}
                     {pollError && (
@@ -381,11 +386,29 @@ export function VideoAnalysis() {
                       <p className="text-xl font-bold text-blue-500">{confirmedWaterlogging}</p>
                     </div>
                   </div>
+
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    ADD TO LIVE MONITORING
+                  </button>
                 </div>
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {/* Reusable Journey Modal */}
+      {videoId && (
+        <AddJourneyModal 
+          isOpen={isAddModalOpen} 
+          onClose={() => setIsAddModalOpen(false)}
+          preUploadedVideoId={videoId}
+          preUploadedFilename={selectedFile?.name || statusData?.video_id || 'video'}
+          preProcessedDuration={statusData?.total_frames && statusData?.processing_fps ? (statusData.total_frames / statusData.processing_fps) : 0}
+        />
       )}
     </div>
   );

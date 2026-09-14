@@ -13,6 +13,7 @@ export function VideoPlayer({ src, results }: VideoPlayerProps) {
   const [showVehicles, setShowVehicles] = useState(true);
   const [showPotholes, setShowPotholes] = useState(true);
   const [showWaterlogging, setShowWaterlogging] = useState(true);
+  const [showDebug, setShowDebug] = useState(false);
 
   return (
     <div
@@ -37,20 +38,25 @@ export function VideoPlayer({ src, results }: VideoPlayerProps) {
         <label className="flex items-center gap-2 text-xs mb-1.5 cursor-pointer hover:text-orange-400 transition-colors">
           <input type="checkbox" checked={showPotholes} onChange={e => setShowPotholes(e.target.checked)} className="accent-orange-500 w-3 h-3" /> Potholes
         </label>
-        <label className="flex items-center gap-2 text-xs cursor-pointer hover:text-blue-400 transition-colors">
+        <label className="flex items-center gap-2 text-xs cursor-pointer hover:text-blue-400 transition-colors mb-1.5">
           <input type="checkbox" checked={showWaterlogging} onChange={e => setShowWaterlogging(e.target.checked)} className="accent-blue-500 w-3 h-3" /> Waterlogging
+        </label>
+        <hr className="border-white/10 my-1.5" />
+        <label className="flex items-center gap-2 text-xs cursor-pointer hover:text-gray-300 transition-colors">
+          <input type="checkbox" checked={showDebug} onChange={e => setShowDebug(e.target.checked)} className="accent-gray-400 w-3 h-3" /> Debug Classes
         </label>
       </div>
 
       {results && results.frames && (
         <DetectionOverlay
-          videoRef={videoRef}
+          videoRef={videoRef as React.RefObject<HTMLVideoElement>}
           frames={results.frames}
           potholeEvents={results.pothole_events}
           waterloggingEvents={results.waterlogging_events}
           showVehicles={showVehicles}
           showPotholes={showPotholes}
           showWaterlogging={showWaterlogging}
+          showDebug={showDebug}
         />
       )}
     </div>

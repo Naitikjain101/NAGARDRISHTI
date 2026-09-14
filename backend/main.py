@@ -44,6 +44,7 @@ from api.routes_notifications import router as notifications_router
 from api.routes_waterlogging_forensic import router as waterlogging_forensic_router
 from api.routes_pothole_lab import router as pothole_lab_router
 from api.routes_missions import router as missions_router
+from api.routes_actions import router as actions_router
 from ai.common.device import get_device_info
 
 # Configure Structured Logging
@@ -123,6 +124,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"error": "INTERNAL_SERVER_ERROR", "message": "An unexpected error occurred.", "request_id": req_id}
     )
 
+from api.routes_actions import router as actions_router
+
 # Configure route directories
 set_video_dirs(UPLOAD_DIR, RESULTS_DIR)
 set_ai_dirs(UPLOAD_DIR, RESULTS_DIR)
@@ -138,11 +141,13 @@ app.include_router(traffic_router)
 app.include_router(system_router)   
 app.include_router(annotation_router, prefix="/api/waterlogging/annotations", tags=["annotation"])
 app.include_router(maintenance_router)
+app.include_router(actions_router)
 app.include_router(fleet_router)
 app.include_router(notifications_router)
 app.include_router(waterlogging_forensic_router)
 app.include_router(pothole_lab_router, prefix="/api")
 app.include_router(missions_router)
+app.include_router(actions_router)
 
 @app.on_event("startup")
 async def startup_event():

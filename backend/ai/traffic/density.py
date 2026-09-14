@@ -85,6 +85,8 @@ class DensityCalculator:
 
         # Map: window_index → set of unique vehicle track IDs
         self._window_vehicle_ids: dict[int, set[int]] = defaultdict(set)
+        # Map: window_index → track_id → class_name
+        self._window_track_classes: dict[int, dict[int, str]] = defaultdict(dict)
         # Maximum timestamp seen
         self._max_timestamp: float = 0.0
 
@@ -108,6 +110,7 @@ class DensityCalculator:
         for track in tracks:
             if is_vehicle_class(track.class_name):
                 self._window_vehicle_ids[window_idx].add(track.track_id)
+                self._window_track_classes[window_idx][track.track_id] = track.class_name
 
         self._max_timestamp = max(self._max_timestamp, timestamp)
 
@@ -131,14 +134,21 @@ class DensityCalculator:
             window_end = window_start + self.window_seconds
 
             vehicle_ids = self._window_vehicle_ids.get(window_idx, set())
+            track_classes = self._window_track_classes.get(window_idx, {})
             count = len(vehicle_ids)
             level = self._classify(count)
+            
+            class_counts = defaultdict(int)
+            for tid in vehicle_ids:
+                cls_name = track_classes.get(tid, "UNKNOWN")
+                class_counts[cls_name] += 1
 
             windows.append(DensityWindow(
                 window_start=round(window_start, 3),
                 window_end=round(window_end, 3),
                 unique_vehicle_count=count,
                 density_level=level,
+                class_counts=dict(class_counts),
                 note=DENSITY_DISCLAIMER,
             ))
 
@@ -165,4 +175,5 @@ class DensityCalculator:
     def reset(self) -> None:
         """Reset state. Call between videos."""
         self._window_vehicle_ids.clear()
+        self._window_track_classes.clear()
         self._max_timestamp = 0.0

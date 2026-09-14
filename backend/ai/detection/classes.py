@@ -11,6 +11,7 @@ IMPORTANT:
 """
 
 from __future__ import annotations
+from ai.common.schemas import CanonicalVehicleClass
 
 # ---------------------------------------------------------------------------
 # COCO class IDs for Phase 1 required classes
@@ -102,27 +103,41 @@ COCO_CLASS_NAMES: dict[int, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# Phase 1 required class names
+# Canonical Class Mapping
 # ---------------------------------------------------------------------------
+
+COCO_TO_CANONICAL: dict[str, str] = {
+    "person": CanonicalVehicleClass.PERSON.value,
+    "bicycle": CanonicalVehicleClass.BICYCLE.value,
+    "car": CanonicalVehicleClass.CAR.value,
+    "motorcycle": CanonicalVehicleClass.MOTORCYCLE.value,
+    "bus": CanonicalVehicleClass.BUS.value,
+    "truck": CanonicalVehicleClass.TRUCK.value,
+}
+
+def to_canonical_class(raw_name: str) -> str:
+    """Map a raw model class string to a canonical taxonomy string."""
+    return COCO_TO_CANONICAL.get(raw_name.lower(), CanonicalVehicleClass.UNKNOWN.value)
 
 # All classes required for Phase 1 detection
 PHASE1_REQUIRED_CLASSES: set[str] = {
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
+    CanonicalVehicleClass.PERSON.value,
+    CanonicalVehicleClass.BICYCLE.value,
+    CanonicalVehicleClass.CAR.value,
+    CanonicalVehicleClass.MOTORCYCLE.value,
+    CanonicalVehicleClass.BUS.value,
+    CanonicalVehicleClass.TRUCK.value,
 }
 
 # Vehicle classes used for vehicle counting and traffic density.
 # Does NOT include "person" — persons are tracked separately.
 VEHICLE_CLASSES: set[str] = {
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
-    "bicycle",
+    CanonicalVehicleClass.CAR.value,
+    CanonicalVehicleClass.MOTORCYCLE.value,
+    CanonicalVehicleClass.BUS.value,
+    CanonicalVehicleClass.TRUCK.value,
+    CanonicalVehicleClass.BICYCLE.value,
+    CanonicalVehicleClass.AUTO_RICKSHAW.value, # Included for future-proofing
 }
 
 # All classes detected in Phase 1 (vehicles + person for context)
@@ -143,7 +158,7 @@ def get_vehicle_class_ids(model_names: dict[int, str]) -> list[int]:
     return [
         cid
         for cid, name in model_names.items()
-        if name in VEHICLE_CLASSES
+        if to_canonical_class(name) in VEHICLE_CLASSES
     ]
 
 
@@ -154,7 +169,7 @@ def get_phase1_class_ids(model_names: dict[int, str]) -> list[int]:
     return [
         cid
         for cid, name in model_names.items()
-        if name in PHASE1_REQUIRED_CLASSES
+        if to_canonical_class(name) in PHASE1_REQUIRED_CLASSES
     ]
 
 
@@ -171,11 +186,11 @@ def validate_required_classes(
     if required is None:
         required = PHASE1_REQUIRED_CLASSES
 
-    found = set(model_names.values())
+    found = set(to_canonical_class(name) for name in model_names.values())
     missing = [cls for cls in sorted(required) if cls not in found]
     return (len(missing) == 0), missing
 
 
 def is_vehicle_class(class_name: str) -> bool:
     """Return True if the class name is a vehicle class."""
-    return class_name in VEHICLE_CLASSES
+    return to_canonical_class(class_name) in VEHICLE_CLASSES

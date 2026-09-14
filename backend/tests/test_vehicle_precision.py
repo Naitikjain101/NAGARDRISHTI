@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from ai.common.schemas import DetectionResult, TrackResult
 from ai.detection.vehicle_suppression import VehicleDuplicateSuppressor
-from ai.tracking.tracker import ByteTracker, stabilize_class
+from ai.tracking.tracker import ByteTracker, stabilize_class, TrackState
 
 
 class DummyModel:
@@ -162,8 +162,20 @@ def test_temporal_class_flicker_stabilization():
         ("truck", 7, 0.50),
         ("car", 2, 0.79),
     ]
+    state = TrackState(
+        track_id=1,
+        raw_class_id=2,
+        raw_class="car",
+        stabilized_class_id=2,
+        stabilized_class="car",
+        first_seen_frame=1,
+        first_seen_timestamp=0.1,
+        last_seen_frame=5,
+        last_seen_timestamp=0.5,
+        class_history=history
+    )
     
-    stab_name, stab_id = stabilize_class(history)
+    stab_name, stab_id = stabilize_class(state, min_frames=1, conf_margin=0.0)
     assert stab_name == "car"
     assert stab_id == 2
 
@@ -200,7 +212,14 @@ def test_empty_detections_does_not_crash():
     assert diag.raw_detections == 0
     assert diag.filtered_detections == 0
 
-    stab_name, stab_id = stabilize_class([])
+    state = TrackState(
+        track_id=1, raw_class_id=-1, raw_class="unknown",
+        stabilized_class_id=-1, stabilized_class="unknown",
+        first_seen_frame=1, first_seen_timestamp=0.0,
+        last_seen_frame=1, last_seen_timestamp=0.0,
+        class_history=[]
+    )
+    stab_name, stab_id = stabilize_class(state)
     assert stab_name == "unknown"
     assert stab_id == -1
 

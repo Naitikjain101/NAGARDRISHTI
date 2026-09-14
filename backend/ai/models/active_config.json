@@ -1,0 +1,18 @@
+{
+  "POTHOLE": {
+    "model_id": "yolo26m_pothole_best",
+    "confidence_threshold": 0.83
+  },
+  "WATERLOGGING": {
+    "model_id": "waterlogging_v2",
+    "confidence_threshold": 0.2
+  },
+  "OBJECT": {
+    "model_id": "yolov8n",
+    "confidence_threshold": 0.1
+  },
+  "HELMET": {
+    "model_id": "best_roadx",
+    "confidence_threshold": 0.4
+  }
+}

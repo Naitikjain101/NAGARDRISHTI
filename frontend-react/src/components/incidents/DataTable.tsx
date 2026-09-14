@@ -57,9 +57,12 @@ export function DataTable({ incidents, onRowClick }: DataTableProps) {
               </td>
               <td className="px-4 py-3">
                 {incident.gps_available ? (
-                  <span className="flex items-center gap-1.5 text-xs">
-                    <MapPin className="h-3 w-3 text-emerald-500" />
-                    {incident.latitude?.toFixed(4)}, {incident.longitude?.toFixed(4)}
+                  <span className="flex flex-col">
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <MapPin className="h-3 w-3 text-emerald-500" />
+                      {incident.latitude?.toFixed(4)}, {incident.longitude?.toFixed(4)}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground ml-4">GPS-linked observation</span>
                   </span>
                 ) : (
                   <span className="text-muted-foreground text-xs">No GPS Data</span>

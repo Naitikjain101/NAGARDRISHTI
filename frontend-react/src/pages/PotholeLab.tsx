@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Play, Pause, ChevronRight, Activity, Download, Settings, BarChart2, Layers, Crosshair, Upload } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { ChevronRight, Download, Settings, BarChart2, Layers, Crosshair, Upload, Cpu } from 'lucide-react';
 import { LabDetectionOverlay } from '../components/video/LabDetectionOverlay';
+import { ModelRegistry } from '../components/video/ModelRegistry';
 
 const ZERO_POTHOLE_VIDEO = "/Users/naitikjain/Documents/Nagar drishti mp4/16373790_3840_2160_30fps_compressed.mp4";
 const POTHOLE_VIDEO = "/Users/naitikjain/Documents/Nagar drishti mp4/potholes.mp4";
@@ -8,16 +9,34 @@ const POTHOLE_VIDEO = "/Users/naitikjain/Documents/Nagar drishti mp4/potholes.mp
 export default function PotholeLab() {
   const [selectedVideo, setSelectedVideo] = useState<string>(POTHOLE_VIDEO);
   const [videoUrl, setVideoUrl] = useState<string>('');
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [, setIsPlaying] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.40);
   const [useTracking, setUseTracking] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'analysis' | 'registry'>('analysis');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
-  
+
+  // Model selector — fetched from registry, defaults to active pothole model
+  const [potholeModels, setPotholeModels] = useState<Record<string, any>>({});
+  const [selectedModelId, setSelectedModelId] = useState<string>(''); // '' = use active
+
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Load pothole model list from registry
+  useEffect(() => {
+    fetch('http://localhost:8000/api/ai/models/POTHOLE')
+      .then(r => r.json())
+      .then(data => {
+        setPotholeModels(data);
+        // Pre-select the active model
+        const activeId = Object.entries(data).find(([, m]: any) => m.is_active)?.[0] ?? '';
+        setSelectedModelId(activeId);
+      })
+      .catch(console.error);
+  }, []);
 
   // Derive stats based on current confidence threshold
   const stats = useMemo(() => {
@@ -65,35 +84,37 @@ export default function PotholeLab() {
     setIsLoading(true);
     setResults(null);
     try {
-      // In a real scenario we'd stream this via API
-      // But because these paths are absolute local paths, we need the backend to read them.
       const jobId = `lab-${Date.now()}`;
-      
+
+      // Send model_id to backend — backend resolves to trusted registry path.
+      // Empty string means "use active pothole model from registry".
       const res = await fetch('http://localhost:8000/api/pothole-lab/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           video_path: selectedVideo,
-          model_path: "/Users/naitikjain/Documents/Nagardristi2.0/runs/detect/models/pothole/v2/weights/best.pt", // Absolute path
-          confidence: 0.10, // Fetch dense raw JSON, filter on client
+          model_id: selectedModelId || undefined,  // undefined → backend uses active
+          confidence: 0.10, // Dense raw JSON; filtered on client by slider
           use_tracking: useTracking,
           job_id: jobId
         })
       });
-      
-      if (!res.ok) throw new Error('Analysis failed');
-      
-      const data = await fetch(`http://localhost:8000/api/pothole-lab/results/${jobId}`);
-      const json = await data.json();
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(err.detail || 'Analysis failed');
+      }
+
+      const resultsRes = await fetch(`http://localhost:8000/api/pothole-lab/results/${jobId}`);
+      const json = await resultsRes.json();
       setResults(json);
-      
-      // Setup video URL directly from backend stream route for preview
+
       const encodedPath = encodeURIComponent(selectedVideo);
       setVideoUrl(`http://localhost:8000/api/pothole-lab/stream?path=${encodedPath}`);
-      
-    } catch (e) {
+
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to analyze video');
+      alert(`Failed to analyze video: ${e.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -144,10 +165,10 @@ export default function PotholeLab() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <Crosshair className="h-6 w-6 text-primary" />
-              Pothole Model Lab
+              AI Model Lab
             </h1>
             <p className="text-muted-foreground mt-1">
-              Isolated visual debugging environment for YOLO26m (models/pothole/best.pt)
+              Pothole Analysis · Universal Model Registry · Benchmark
             </p>
           </div>
           
@@ -162,37 +183,90 @@ export default function PotholeLab() {
               onClick={() => setSelectedVideo(POTHOLE_VIDEO)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedVideo === POTHOLE_VIDEO ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
             >
-              Real Pothole Test
+              Pothole Test
             </button>
-            
-            <input 
-              type="file" 
-              accept="video/mp4,video/x-m4v,video/*" 
-              className="hidden" 
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-            />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedVideo !== ZERO_POTHOLE_VIDEO && selectedVideo !== POTHOLE_VIDEO ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
-            >
-              <Upload className="h-4 w-4" />
-              {isUploading ? 'Uploading...' : 'Custom Video'}
-            </button>
+            <div className="flex bg-muted p-1 rounded-lg">
+              <button
+                className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'analysis' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+                onClick={() => setActiveTab('analysis')}
+              >
+                Analysis Lab
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'registry' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+                onClick={() => setActiveTab('registry')}
+              >
+                Model Registry
+              </button>
+            </div>
 
-            <button
-              onClick={handleAnalyze}
-              disabled={isLoading || isUploading}
-              className="ml-4 px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isLoading ? 'Processing...' : 'Run Analysis'}
-            </button>
+            {activeTab === 'analysis' && (
+              <>
+                <button 
+                  onClick={() => setSelectedVideo(ZERO_POTHOLE_VIDEO)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedVideo === ZERO_POTHOLE_VIDEO ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
+                >
+                  Zero Pothole Test
+                </button>
+                <button 
+                  onClick={() => setSelectedVideo(POTHOLE_VIDEO)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedVideo === POTHOLE_VIDEO ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
+                >
+                  Real Pothole Test
+                </button>
+                
+                <input 
+                  type="file" 
+                  accept="video/mp4,video/x-m4v,video/*" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedVideo !== ZERO_POTHOLE_VIDEO && selectedVideo !== POTHOLE_VIDEO ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
+                >
+                  <Upload className="h-4 w-4" />
+                  {isUploading ? 'Uploading...' : 'Custom Video'}
+                </button>
+
+                {/* Model selector — populated from central registry */}
+                {Object.keys(potholeModels).length > 0 && (
+                  <div className="flex items-center gap-2 ml-2">
+                    <Cpu className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <select
+                      value={selectedModelId}
+                      onChange={e => setSelectedModelId(e.target.value)}
+                      className="text-sm bg-muted border rounded-md px-2 py-1.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                      title="Select pothole model for this lab run"
+                    >
+                      {Object.entries(potholeModels).map(([id, m]: any) => (
+                        <option key={id} value={id} disabled={!m.file_exists}>
+                          {m.display_name}{m.is_active ? ' ✓' : ''}{!m.file_exists ? ' (unavailable)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleAnalyze}
+                  disabled={isLoading || isUploading}
+                  className="ml-4 px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isLoading ? 'Processing...' : 'Run Analysis'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {results && stats && (
-          <>
+        {activeTab === 'registry' ? (
+          <ModelRegistry />
+        ) : (
+          results && stats && (
+            <>
             {/* Acceptance Visualizer */}
             <div className="bg-card border rounded-lg p-6 flex items-center justify-between shadow-sm">
               <div>
@@ -230,7 +304,7 @@ export default function PotholeLab() {
                         onPause={() => setIsPlaying(false)}
                       />
                       <LabDetectionOverlay 
-                        videoRef={videoRef}
+                        videoRef={videoRef as any}
                         frames={results.frames}
                         confidenceThreshold={confidenceThreshold}
                       />
@@ -440,7 +514,8 @@ export default function PotholeLab() {
                 </table>
               </div>
             </div>
-          </>
+            </>
+          )
         )}
       </div>
     </div>

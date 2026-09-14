@@ -95,7 +95,7 @@ export function Overview() {
           </div>
           <div className="flex-1 w-full h-full">
             <MapView 
-              incidents={incidents}
+              incidents={incidents as unknown as any[]}
               onIncidentClick={() => {}} // We'll link this to global drawer or detailed view later
             />
           </div>

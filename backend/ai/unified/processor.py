@@ -58,6 +58,7 @@ from ai.waterlogging.config import (
     WATERLOGGING_FRAME_GAP_TOLERANCE,
     WATERLOGGING_TRACKING_IOU_THRESHOLD,
     WATERLOGGING_ENABLED,
+    WATERLOGGING_TEST_MODE,
 )
 
 from video.reader import read_video_info, iter_frames, VideoReadError
@@ -84,25 +85,27 @@ class UnifiedModelCache:
         # Pothole
         self.pothole_detector = PotholeDetector(
             config=PotholeDetectorConfig(
-                model_path=DEFAULT_POTHOLE_MODEL,
                 imgsz=POTHOLE_IMGSZ,
-                confidence_threshold=POTHOLE_CONFIDENCE_THRESHOLD,
                 iou_threshold=POTHOLE_IOU_THRESHOLD,
             )
         )
         self.pothole_detector.load()
         
         # Waterlogging
-        if WATERLOGGING_ENABLED:
-            self.waterlogging_detector = WaterloggingDetector(
-                config=WaterloggingDetectorConfig(
-                    model_path=DEFAULT_WATERLOGGING_MODEL,
-                    imgsz=WATERLOGGING_IMGSZ,
-                    confidence_threshold=WATERLOGGING_CONFIDENCE_THRESHOLD,
-                    iou_threshold=WATERLOGGING_IOU_THRESHOLD,
+        if WATERLOGGING_ENABLED or WATERLOGGING_TEST_MODE:
+            try:
+                # WaterloggingDetectorConfig.__post_init__ resolves path from
+                # the central registry (ai.models.registry) when model_path is None.
+                self.waterlogging_detector = WaterloggingDetector(
+                    config=WaterloggingDetectorConfig(
+                        imgsz=WATERLOGGING_IMGSZ,
+                        iou_threshold=WATERLOGGING_IOU_THRESHOLD,
+                    )
                 )
-            )
-            self.waterlogging_detector.load()
+                self.waterlogging_detector.load()
+            except ModelNotFoundError:
+                logger.warning("Waterlogging model not found, proceeding without it.")
+                self.waterlogging_detector = None
         else:
             self.waterlogging_detector = None
             
@@ -158,16 +161,29 @@ class UnifiedVideoProcessor:
             file_size_bytes=video_info.file_size_bytes,
         )
 
+        from ai.models.registry import get_all_models, get_active_model
+        
+        # Override CONFIDENCE_THRESHOLD for object detector via registry
+        obj_reg = get_active_model("OBJECT")
+        obj_conf_thresh = obj_reg.get("confidence_threshold", CONFIDENCE_THRESHOLD)
+        
+        pt_reg = get_active_model("POTHOLE")
+        pt_conf_thresh = pt_reg.get("confidence_threshold", POTHOLE_CONFIDENCE_THRESHOLD)
+
+        wl_reg = get_active_model("WATERLOGGING")
+        wl_conf_thresh = wl_reg.get("confidence_threshold", WATERLOGGING_CONFIDENCE_THRESHOLD)
+        
         proc_config = ProcessingConfig(
             device=self.device,
-            model_name=f"{PRODUCTION_MODEL} + {DEFAULT_POTHOLE_MODEL} + {DEFAULT_WATERLOGGING_MODEL}",
+            model_name=f"{PRODUCTION_MODEL} + RegistryModels",
             imgsz=max(INFERENCE_IMGSZ, POTHOLE_IMGSZ, WATERLOGGING_IMGSZ),
-            confidence_threshold=CONFIDENCE_THRESHOLD,
+            confidence_threshold=obj_conf_thresh,
             iou_threshold=IOU_THRESHOLD,
             frame_interval=FRAME_INTERVAL,
             batch_size=1,
             ultralytics_version=ultralytics.__version__,
             torch_version=str(torch.__version__),
+            active_models=get_all_models()
         )
 
         # 2. Load Models (Singleton)
@@ -224,9 +240,9 @@ class UnifiedVideoProcessor:
         # 4. Process Frames
         frame_results: list[UnifiedFrameResult] = []
         sampler_config = SamplerConfig(interval=FRAME_INTERVAL)
-        # Stream frames lazily — do NOT load all into memory first.
-        frame_iterator = list(FrameSampler(sampler_config).iter(video_path))
-        total_frames = len(frame_iterator)
+        # Frame iteration and total frames
+        total_frames = int(video_info.frame_count // FRAME_INTERVAL) if video_info.frame_count else 0
+        frame_iterator = FrameSampler(sampler_config).iter(video_path)
 
         logger.info(
             "[VIDEO] job=%s video_opened frames=%d fps=%.1f duration=%.1fs device=%s",
@@ -243,7 +259,7 @@ class UnifiedVideoProcessor:
                     frame=frame,
                     frame_index=frame_index,
                     timestamp=timestamp,
-                    confidence_threshold=CONFIDENCE_THRESHOLD,
+                    confidence_threshold=obj_conf_thresh,
                     iou_threshold=IOU_THRESHOLD,
                     imgsz=INFERENCE_IMGSZ,
                     class_filter=class_filter,
@@ -258,39 +274,45 @@ class UnifiedVideoProcessor:
             active_vehicle_ids = vehicle_counter.get_active_vehicle_ids_in_frame(tracks)
 
             # B. Pothole Pipeline
-            pothole_dets, pt_prof = pothole_detector.detect(frame, frame_index, timestamp)
+            pothole_dets, pt_prof = pothole_detector.detect(frame, frame_index, timestamp, confidence_threshold=pt_conf_thresh)
             
             # C. Fused Intelligence (Interaction, ROI, Tracking)
-            active_pothole_ids = event_engine.update(
+            # Returns (active_event_ids, accepted_detections) — parallel arrays
+            active_pothole_ids, accepted_pothole_dets = event_engine.update(
                 frame_index=frame_index, 
                 timestamp=timestamp, 
                 raw_detections=pothole_dets,
                 vehicle_tracks=tracks
             )
             
-            # D. Waterlogging Pipeline (disabled if WATERLOGGING_ENABLED=False)
-            if WATERLOGGING_ENABLED and waterlogging_detector is not None:
-                waterlogging_dets, wl_prof = waterlogging_detector.detect(frame, frame_index, timestamp)
-                active_waterlogging_ids = waterlogging_event_engine.update(
+            # D. Waterlogging Pipeline (disabled if WATERLOGGING_ENABLED=False and TEST_MODE=False)
+            if (WATERLOGGING_ENABLED or WATERLOGGING_TEST_MODE) and waterlogging_detector is not None:
+                waterlogging_dets, wl_prof = waterlogging_detector.detect(frame, frame_index, timestamp, confidence_threshold=wl_conf_thresh)
+                # Returns (active_event_ids, accepted_detections) — parallel arrays
+                active_waterlogging_ids, accepted_wl_dets = waterlogging_event_engine.update(
                     frame_index=frame_index,
                     timestamp=timestamp,
                     raw_detections=waterlogging_dets,
                     vehicle_tracks=tracks
                 )
             else:
-                waterlogging_dets = []
+                accepted_wl_dets = []
                 active_waterlogging_ids = []
                 wl_prof = None
 
             frame_result = UnifiedFrameResult(
                 frame_index=frame_index,
-                timestamp=timestamp,
+                timestamp=round(timestamp, 4),
                 vehicle_tracks=tracks,
-                unique_vehicle_count_in_frame=len(active_vehicle_ids),
-                pothole_detections=pothole_dets,
+                unique_vehicle_count_in_frame=0,
+                # Phase 19.5: Restore per-frame detection data.
+                # These were previously omitted ("save space") which broke the video overlay.
+                # accepted_pothole_dets is parallel to active_pothole_ids (1:1 index mapping).
+                # accepted_wl_dets is parallel to active_waterlogging_ids (1:1 index mapping).
+                pothole_detections=accepted_pothole_dets,
                 active_pothole_event_ids=active_pothole_ids,
-                waterlogging_detections=waterlogging_dets,
-                active_waterlogging_event_ids=active_waterlogging_ids
+                waterlogging_detections=accepted_wl_dets,
+                active_waterlogging_event_ids=active_waterlogging_ids,
             )
             frame_results.append(frame_result)
 
@@ -306,11 +328,12 @@ class UnifiedVideoProcessor:
 
             if progress_callback:
                 progress_callback(
-                    i + 1,
-                    total_frames,
-                    self._timing_total.fps,
-                    len(vehicle_counter.get_active_vehicle_ids_in_frame(tracks)),
-                    len(event_engine.active_events) if hasattr(event_engine, "active_events") else 0
+                    done=i + 1,
+                    total=total_frames,
+                    fps=self._timing_total.fps,
+                    vehicles=len(vehicle_counter.get_active_vehicle_ids_in_frame(tracks)),
+                    potholes=len(event_engine.active_events) if hasattr(event_engine, "active_events") else 0,
+                    waterlogging=len(waterlogging_event_engine.active_events) if hasattr(waterlogging_event_engine, "active_events") else 0
                 )
 
             if (i + 1) % 100 == 0 or (i + 1) == total_frames:
@@ -381,6 +404,8 @@ class UnifiedVideoProcessor:
         return result
 
     def _error_result(self, video_id: str, video_path: str, error: str) -> UnifiedVideoSummary:
+        from ai.models.registry import get_all_models
+
         return UnifiedVideoSummary(
             video=VideoMetadata(
                 video_id=video_id,
@@ -395,7 +420,8 @@ class UnifiedVideoProcessor:
                 iou_threshold=0.45,
                 frame_interval=1,
                 batch_size=1,
-                torch_version=str(torch.__version__)
+                torch_version=str(torch.__version__),
+                active_models=get_all_models()
             ),
             status=ProcessingStatus.FAILED,
             error=error

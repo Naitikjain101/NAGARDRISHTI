@@ -1,52 +1,191 @@
-import { Marker, Popup } from 'react-leaflet';
+import { Marker, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
-import type { Incident } from '@/api/incidents';
-import { AlertTriangle } from 'lucide-react';
+import type { MapIncident } from '@/hooks/useMapIntelligence';
 
 interface IncidentMarkerProps {
-  incident: Incident;
-  onClick: (incident: Incident) => void;
+  incident: MapIncident;
+  onClick: (incident: MapIncident) => void;
+}
+
+/** Build a high-visibility custom icon SVG for each incident type */
+function buildIcon(incident: MapIncident): L.DivIcon {
+  const type = (incident.incident_type || incident.type || '').toLowerCase();
+  const severity = (incident.severity || 'LOW').toUpperCase();
+  const isConfirmed = incident.dedup_status === 'CONFIRMED';
+  const busCount = incident.observed_by?.length || 1;
+
+  // Semantic colors per spec: pothole=RED, waterlogging=BLUE
+  let primary = '#ef4444';   // red — pothole default
+  let icon = '🕳️';
+
+  if (type === 'waterlogging') {
+    primary = '#3b82f6';     // blue
+    icon = '💧';
+  } else if (type === 'pothole') {
+    // Severity modifies shade but stays in RED family
+    if (severity === 'CRITICAL') { primary = '#b91c1c'; }
+    else if (severity === 'HIGH') { primary = '#dc2626'; }
+    else if (severity === 'MODERATE') { primary = '#f97316'; icon = '⚠️'; }
+  }
+
+  const ringColor = isConfirmed ? '#10b981' : primary;
+  const hasBadge = busCount >= 2;
+
+  const html = `
+    <div style="position:relative; width:24px; height:24px; display:flex; flex-direction:column; align-items:center;">
+      <!-- Inner marker circle -->
+      <div style="
+        position:absolute; top:2px; left:50%; transform:translateX(-50%);
+        width:20px; height:20px; border-radius:50%;
+        background:${primary};
+        border:2px solid white;
+        box-shadow:0 1px 4px rgba(0,0,0,0.5);
+        display:flex; align-items:center; justify-content:center;
+        font-size:10px; line-height:1;
+        z-index:10;
+      ">${icon}</div>
+      <!-- Severity ring arc at bottom -->
+      <div style="
+        position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+        width:8px; height:4px; border-radius:2px;
+        background:${ringColor};
+        opacity:0.85;
+      "></div>
+      ${hasBadge ? `
+        <!-- Multi-bus badge -->
+        <div style="
+          position:absolute; top:-4px; right:-4px;
+          background:#f97316; color:white;
+          font-size:8px; font-weight:900; font-family:monospace;
+          border-radius:99px; padding:0 3px;
+          border:1px solid white;
+          box-shadow:0 1px 2px rgba(0,0,0,0.3);
+          z-index:20; line-height:12px;
+        ">${busCount}</div>
+      ` : ''}
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: 'incident-custom-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+    tooltipAnchor: [12, -12],
+  });
 }
 
 export function IncidentMarker({ incident, onClick }: IncidentMarkerProps) {
   if (!incident.latitude || !incident.longitude) return null;
 
-  let colorClass = 'bg-emerald-500 shadow-emerald-500/50'; // Default vehicle
-  if (incident.severity === 'CRITICAL') {
-    colorClass = 'bg-red-500 shadow-red-500/50';
-  } else if (incident.type === 'pothole') {
-    colorClass = 'bg-orange-500 shadow-orange-500/50';
-  } else if (incident.type === 'waterlogging') {
-    colorClass = 'bg-blue-500 shadow-blue-500/50';
-  }
+  const type = (incident.incident_type || incident.type || 'Unknown');
+  const typeLabel = type.replace('_', ' ').toUpperCase();
+  const isConfirmed = incident.dedup_status === 'CONFIRMED';
+  const uniqueBuses = incident.observed_by?.length || 1;
+  const isWaterlogging = type === 'waterlogging';
 
-  // Create custom DivIcon for Tailwind styling
-  const icon = L.divIcon({
-    className: 'bg-transparent border-none',
-    html: `<div class="relative flex items-center justify-center w-6 h-6">
-            <div class="absolute w-full h-full rounded-full animate-ping opacity-75 ${colorClass.split(' ')[0]}"></div>
-            <div class="relative w-4 h-4 rounded-full border-2 border-white shadow-lg ${colorClass}"></div>
-           </div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
-  });
+  let evidenceColor = '#60a5fa';
+  if (uniqueBuses === 2) { evidenceColor = '#f97316'; }
+  else if (uniqueBuses >= 3) { evidenceColor = '#10b981'; }
+
+  const icon = buildIcon(incident);
 
   return (
-    <Marker 
-      position={[incident.latitude, incident.longitude]} 
+    <Marker
+      position={[incident.latitude, incident.longitude]}
       icon={icon}
-      eventHandlers={{
-        click: () => onClick(incident)
-      }}
+      eventHandlers={{ click: () => onClick(incident) }}
     >
-      <Popup className="custom-popup">
-        <div className="p-1">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-            <h4 className="font-semibold capitalize">{incident.type.replace('_', ' ')}</h4>
+      {/* Persistent label visible at closer zoom levels */}
+      <Tooltip
+        direction="right"
+        offset={[8, -28]}
+        opacity={0.95}
+        className="incident-tooltip"
+        permanent={false}
+      >
+        <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minWidth: 130 }}>
+          <div style={{ fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+            {typeLabel}
+            {isWaterlogging && <span style={{ fontSize: 9, marginLeft: 4, color: '#93c5fd' }}>TEST MODE</span>}
           </div>
-          <p className="text-sm mb-1">Severity: <span className="font-medium">{incident.severity}</span></p>
-          <p className="text-xs text-muted-foreground">Confidence: {Math.round(incident.confidence * 100)}%</p>
+          <div style={{ fontSize: 10, opacity: 0.75, marginTop: 2 }}>
+            {incident.severity} · {Math.round((incident.confidence || 0) * 100)}% conf
+          </div>
+          {incident.observation_count > 0 && (
+            <div style={{ fontSize: 10, opacity: 0.65 }}>{incident.observation_count} observations</div>
+          )}
+        </div>
+      </Tooltip>
+
+      {/* Click popup */}
+      <Popup className="custom-popup" closeButton={false}>
+        <div style={{
+          padding: 12, minWidth: 220, fontFamily: 'Inter, system-ui, sans-serif',
+          background: 'hsl(var(--card)/0.98)', backdropFilter: 'blur(12px)',
+          borderRadius: 12, border: '1px solid hsl(var(--border)/0.5)',
+          color: 'hsl(var(--foreground))'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid hsl(var(--border)/0.4)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>{isWaterlogging ? '💧' : '🕳️'}</span>
+              <span style={{ fontWeight: 800, fontSize: 14, textTransform: 'capitalize' }}>
+                {typeLabel}
+                {isWaterlogging && <span style={{ fontSize: 9, marginLeft: 6, color: '#60a5fa', fontWeight: 700 }}>TEST MODE</span>}
+              </span>
+            </div>
+            {isConfirmed && (
+              <span style={{ fontSize: 9, fontWeight: 700, background: '#10b98122', color: '#10b981', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                ✓ CONFIRMED
+              </span>
+            )}
+          </div>
+
+          {/* Stats grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+            {[
+              { label: 'Severity', value: incident.severity },
+              { label: 'Confidence', value: `${Math.round((incident.confidence || 0) * 100)}%` },
+              { label: 'Sightings', value: incident.observation_count },
+              { label: 'Buses', value: uniqueBuses },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ background: 'hsl(var(--secondary)/0.4)', borderRadius: 6, padding: '4px 6px' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, opacity: 0.6 }}>{label}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 1 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Evidence strength bar */}
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, opacity: 0.6, marginBottom: 4 }}>Evidence Strength</div>
+          <div style={{ background: 'hsl(var(--secondary)/0.5)', borderRadius: 4, height: 6, marginBottom: 10 }}>
+            <div style={{
+              height: '100%', borderRadius: 4, background: evidenceColor,
+              width: uniqueBuses === 1 ? '33%' : uniqueBuses === 2 ? '66%' : '100%',
+              transition: 'width 0.5s ease'
+            }} />
+          </div>
+
+          {/* GPS */}
+          <div style={{ fontSize: 9, fontFamily: 'monospace', opacity: 0.55, marginBottom: 10 }}>
+            {incident.latitude.toFixed(5)}, {incident.longitude.toFixed(5)}
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onClick(incident); }}
+            style={{
+              width: '100%', padding: '6px 0',
+              background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))',
+              border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 700,
+              letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
+            }}
+          >
+            📋 View Evidence Trail
+          </button>
         </div>
       </Popup>
     </Marker>

@@ -74,7 +74,7 @@ export function Incidents() {
       </div>
 
       <IncidentDrawer 
-        incident={selectedIncident} 
+        incident={selectedIncident as any} 
         onClose={() => setSelectedIncident(null)} 
       />
     </div>

@@ -49,16 +49,17 @@ class VehicleCounter:
     def update(self, tracks: list[TrackResult]) -> None:
         """
         Update counts with tracks from one frame.
-
-        Parameters
-        ----------
-        tracks : list[TrackResult]
-            Tracked objects in the current frame.
+        Ensures each track ID is counted under exactly ONE class (its most recent stable class).
         """
         for track in tracks:
             self._all_track_ids.add(track.track_id)
 
             if is_vehicle_class(track.class_name):
+                # Remove this track_id from any other class sets it might have been in
+                for cls, ids in self._track_ids_by_class.items():
+                    if cls != track.class_name and track.track_id in ids:
+                        ids.remove(track.track_id)
+                
                 self._track_ids_by_class[track.class_name].add(track.track_id)
                 self._all_vehicle_track_ids.add(track.track_id)
 

@@ -28,17 +28,27 @@ from ai.pothole.config import (
 )
 from ai.pothole.schemas import PotholeDetection
 
+from ai.models.registry import get_active_model
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class PotholeDetectorConfig:
-    model_path: str = DEFAULT_POTHOLE_MODEL
+    model_path: Optional[str] = None
     imgsz: int = POTHOLE_IMGSZ
-    confidence_threshold: float = POTHOLE_CONFIDENCE_THRESHOLD
+    confidence_threshold: Optional[float] = None
     iou_threshold: float = POTHOLE_IOU_THRESHOLD
     device: Optional[str] = None
-
+    
+    def __post_init__(self):
+        active_model = get_active_model("POTHOLE")
+        if self.model_path is None:
+            self.model_path = active_model["model_path"]
+        if self.confidence_threshold is None:
+            self.confidence_threshold = active_model.get("confidence_threshold", POTHOLE_CONFIDENCE_THRESHOLD)
+        self.model_id = active_model.get("model_id")
+        self.sha256 = active_model.get("sha256")
 
 class PotholeDetector:
     """Production Pothole Detector Engine."""
@@ -69,6 +79,7 @@ class PotholeDetector:
         frame: np.ndarray,
         frame_index: int = 0,
         timestamp: float = 0.0,
+        confidence_threshold: Optional[float] = None,
     ) -> Tuple[List[PotholeDetection], FrameTimer]:
         """
         Run pothole detection on a single frame.
@@ -92,11 +103,13 @@ class PotholeDetector:
         frame_timer = FrameTimer()
         orig_h, orig_w = frame.shape[:2]
 
+        conf_to_use = confidence_threshold if confidence_threshold is not None else self.config.confidence_threshold
+
         with timer() as t:
             results = self._model.predict(
                 source=frame,
                 imgsz=self.config.imgsz,
-                conf=self.config.confidence_threshold,
+                conf=conf_to_use,
                 device=self.config.device,
                 verbose=False,
                 stream=False,

@@ -19,6 +19,17 @@ from pydantic import BaseModel, Field
 # Enumerations
 # ---------------------------------------------------------------------------
 
+class CanonicalVehicleClass(str, Enum):
+    PERSON = "PERSON"
+    CAR = "CAR"
+    MOTORCYCLE = "MOTORCYCLE"
+    AUTO_RICKSHAW = "AUTO_RICKSHAW"
+    BUS = "BUS"
+    TRUCK = "TRUCK"
+    BICYCLE = "BICYCLE"
+    OTHER_VEHICLE = "OTHER_VEHICLE"
+    UNKNOWN = "UNKNOWN"
+
 class DensityLevel(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
@@ -170,6 +181,7 @@ class DensityWindow(BaseModel):
     window_end: float
     unique_vehicle_count: int
     density_level: DensityLevel
+    class_counts: Dict[str, int] = Field(default_factory=dict)
     note: str = Field(
         default=(
             "Prototype traffic-density classification based on tracked "
@@ -195,6 +207,7 @@ class ProcessingConfig(BaseModel):
     batch_size: int
     ultralytics_version: Optional[str] = None
     torch_version: Optional[str] = None
+    active_models: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------

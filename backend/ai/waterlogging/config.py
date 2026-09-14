@@ -33,4 +33,5 @@ WATERLOGGING_MAX_AREA_RATIO = 0.90
 # SHA256: b8698dcd0683b8794a56a45cea56c2a66f76d322decccaee720da8c23b39922a
 # WaterloggingValidator guards remain active (max_area_ratio=0.40, min_conf=0.55).
 # ============================================================
-WATERLOGGING_ENABLED = True
+WATERLOGGING_ENABLED = False
+WATERLOGGING_TEST_MODE = True
