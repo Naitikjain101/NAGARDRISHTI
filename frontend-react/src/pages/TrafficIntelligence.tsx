@@ -10,12 +10,16 @@ export function TrafficIntelligence() {
   const [trafficWindows, setTrafficWindows] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/missions/')
+    fetch('/api/missions/')
       .then(r => r.json())
       .then(data => {
         setMissions(data.missions || []);
         if (data.missions?.length > 0) {
-          setSelectedVideo(data.missions[0].video_filename);
+          // Use the video_id from metadata for traffic history lookup
+          const firstMission = data.missions[0];
+          const meta = firstMission.metadata || {};
+          const videoId = (typeof meta === 'object' ? meta.video_id : null) || firstMission.video_filename;
+          setSelectedVideo(videoId || '');
         }
       })
       .catch(console.error);
@@ -24,7 +28,7 @@ export function TrafficIntelligence() {
   useEffect(() => {
     if (!selectedVideo) return;
     setIsLoading(true);
-    fetch(`http://localhost:8000/api/traffic/history?video_id=${selectedVideo}`)
+    fetch(`/api/traffic/history?video_id=${encodeURIComponent(selectedVideo)}`)
       .then(r => r.json())
       .then(data => {
         if (data && data.windows) {

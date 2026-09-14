@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { maintenanceApi } from '@/api/maintenance';
 import { useState } from 'react';
 import { IncidentDrawer } from '@/components/incidents/IncidentDrawer';
-import type { Incident } from '@/api/fleet';
 
 export function Maintenance() {
   const { data: tasks, isLoading } = useQuery({
@@ -11,7 +10,7 @@ export function Maintenance() {
     queryFn: maintenanceApi.getTasks
   });
 
-  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
 
   const columns = [
     { id: 'UNASSIGNED', title: 'UNASSIGNED', icon: AlertTriangle, color: 'text-red-500' },
@@ -93,8 +92,7 @@ export function Maintenance() {
       </div>
 
       <IncidentDrawer 
-        incident={selectedIncident} 
-        isOpen={!!selectedIncident} 
+        incident={selectedIncident as any} 
         onClose={() => setSelectedIncident(null)} 
       />
     </div>

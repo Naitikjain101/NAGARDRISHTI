@@ -407,7 +407,18 @@ export function VideoAnalysis() {
           onClose={() => setIsAddModalOpen(false)}
           preUploadedVideoId={videoId}
           preUploadedFilename={selectedFile?.name || statusData?.video_id || 'video'}
-          preProcessedDuration={statusData?.total_frames && statusData?.processing_fps ? (statusData.total_frames / statusData.processing_fps) : 0}
+          preProcessedDuration={
+            // RC-2 fix: Use authoritative video duration from AI results (backend metadata).
+            // Fallback chain: results.video.duration_seconds → results.metadata.video_duration
+            //   → statusData total_frames/fps estimate (only if fps is non-null and > 0)
+            // Never pass 0 — the backend's create_journey endpoint now also reads from disk
+            // as a safety net (RC-1 fix), but we want the best value available here.
+            resultsData?.video?.duration_seconds
+            || resultsData?.metadata?.video_duration
+            || (statusData?.total_frames && statusData?.processing_fps
+                  ? (statusData.total_frames / statusData.processing_fps)
+                  : 0)
+          }
         />
       )}
     </div>

@@ -274,6 +274,26 @@ export function AddJourneyModal({ isOpen, onClose, preUploadedVideoId, preUpload
         duration = uploadData.metadata?.duration_seconds || 0;
       }
 
+      // RC-2 safety net: if duration is still 0 (race condition or pre-uploaded path),
+      // fetch the real duration from the backend metadata endpoint before creating the journey.
+      // The backend (RC-1 fix) will also read from disk as a final fallback, but we
+      // provide the best value available here to keep the DB consistent.
+      if ((!duration || duration <= 0) && videoId) {
+        try {
+          const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          const metaRes = await fetch(`${API_BASE}/api/video/${videoId}/metadata`);
+          if (metaRes.ok) {
+            const metaData = await metaRes.json();
+            if (metaData.duration_seconds && metaData.duration_seconds > 0) {
+              duration = metaData.duration_seconds;
+              console.info('[VIDEO-GPS SYNC] Duration resolved from metadata endpoint: %.3fs video_id=%s', duration, videoId);
+            }
+          }
+        } catch (metaErr) {
+          console.warn('[VIDEO-GPS SYNC] Metadata fetch failed, backend will read from disk:', metaErr);
+        }
+      }
+
       // 2. Create Journey with Route Points
       setStatus('CREATING');
       

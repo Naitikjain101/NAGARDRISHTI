@@ -27,7 +27,7 @@ export default function PotholeLab() {
 
   // Load pothole model list from registry
   useEffect(() => {
-    fetch('http://localhost:8000/api/ai/models/POTHOLE')
+    fetch('/api/ai/models/POTHOLE')
       .then(r => r.json())
       .then(data => {
         setPotholeModels(data);
@@ -88,7 +88,7 @@ export default function PotholeLab() {
 
       // Send model_id to backend — backend resolves to trusted registry path.
       // Empty string means "use active pothole model from registry".
-      const res = await fetch('http://localhost:8000/api/pothole-lab/analyze', {
+      const res = await fetch('/api/pothole-lab/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,12 +105,12 @@ export default function PotholeLab() {
         throw new Error(err.detail || 'Analysis failed');
       }
 
-      const resultsRes = await fetch(`http://localhost:8000/api/pothole-lab/results/${jobId}`);
+      const resultsRes = await fetch(`/api/pothole-lab/results/${jobId}`);
       const json = await resultsRes.json();
       setResults(json);
 
       const encodedPath = encodeURIComponent(selectedVideo);
-      setVideoUrl(`http://localhost:8000/api/pothole-lab/stream?path=${encodedPath}`);
+      setVideoUrl(`/api/pothole-lab/stream?path=${encodedPath}`);
 
     } catch (e: any) {
       console.error(e);
@@ -136,7 +136,7 @@ export default function PotholeLab() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch('http://localhost:8000/api/pothole-lab/upload', {
+      const res = await fetch('/api/pothole-lab/upload', {
         method: 'POST',
         body: formData
       });

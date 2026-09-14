@@ -37,6 +37,12 @@ function calculateHeading(lat1: number, lon1: number, lat2: number, lon2: number
 }
 
 /**
+ * DEV_SYNC_LOG: Set to true locally to trace video→GPS synchronization.
+ * MUST be false in production / before merging. Never logs when false.
+ */
+const DEV_SYNC_LOG = false;
+
+/**
  * Interpolates the bus position given a video timestamp and an ordered array of route points.
  */
 export function getPositionAtTime(points: RoutePoint[], currentTime: number, totalVideoDuration: number): InterpolatedPosition | null {
@@ -46,6 +52,16 @@ export function getPositionAtTime(points: RoutePoint[], currentTime: number, tot
 
   const duration = totalVideoDuration > 0 ? totalVideoDuration : points[points.length - 1].timestamp_seconds;
   const progress = duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0;
+
+  if (DEV_SYNC_LOG) {
+    const firstTs = points[0]?.timestamp_seconds ?? 'N/A';
+    const lastTs = points[points.length - 1]?.timestamp_seconds ?? 'N/A';
+    console.debug(
+      '[VIDEO-GPS SYNC] t=%.3fs dur=%.3fs progress=%.2f route_bounds=[%.3f,%.3f] pts=%d',
+      currentTime, duration, progress, firstTs, lastTs, points.length
+    );
+  }
+
 
   // Single point edge case
   if (points.length === 1) {

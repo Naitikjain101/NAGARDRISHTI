@@ -321,7 +321,7 @@ export function ModelRegistry() {
   const fetchRegistry = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch('http://localhost:8000/api/ai/models');
+      const res = await fetch('/api/ai/models');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setRegistry(data);
@@ -358,7 +358,7 @@ export function ModelRegistry() {
   const handleSaveConfidence = async (task: string, modelId: string, conf: number) => {
     setSwitching(true);
     try {
-      const res = await fetch('http://localhost:8000/api/ai/models/confidence', {
+      const res = await fetch('/api/ai/models/confidence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ task, model_id: modelId, confidence_threshold: conf }),
@@ -380,7 +380,7 @@ export function ModelRegistry() {
     if (!modal.model) return;
     setSwitching(true);
     try {
-      const res = await fetch('http://localhost:8000/api/ai/models/active', {
+      const res = await fetch('/api/ai/models/active', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ task: modal.task, model_id: modal.modelId }),
@@ -406,7 +406,7 @@ export function ModelRegistry() {
     if (!confirmed) return;
     setSwitching(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/ai/models/rollback/${task}`, {
+      const res = await fetch(`/api/ai/models/rollback/${task}`, {
         method: 'POST',
       });
       if (!res.ok) {

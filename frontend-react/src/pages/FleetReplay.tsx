@@ -50,34 +50,51 @@ function MapController({ selectedIncident }: { selectedIncident: MapIncident | n
 }
 
 // Individual Fleet Journey Video Player
+// RC-3 fix: exposes per-journey video.currentTime via onVideoTimeUpdate.
+// GPS position must never be derived from the shared fleet wall-clock — only
+// from this journey's own video.currentTime, which correctly handles:
+//   - pause (currentTime holds steady)
+//   - seek (currentTime jumps immediately)
+//   - videos of different lengths (each clamps at its own end)
 interface FleetJourneyPlayerProps {
   mission: any;
   aiResults: any;
   videoId: string;
   fleetElapsedTime: number;
+  onVideoTimeUpdate?: (missionId: string, currentTime: number, duration: number) => void;
 }
-function FleetJourneyPlayer({ mission, aiResults, videoId, fleetElapsedTime }: FleetJourneyPlayerProps) {
+function FleetJourneyPlayer({ mission, aiResults, videoId, fleetElapsedTime, onVideoTimeUpdate }: FleetJourneyPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoDuration, setVideoDuration] = useState(0);
+  const rafRef = useRef<number>(0);
   
   const videoStreamUrl = videoId ? videoApi.getStreamUrl(videoId) : null;
 
-  // Throttled sync of video.currentTime to fleetElapsedTime
-  const lastSyncTime = useRef(-1);
+  // Sync fleet scrubber → video.currentTime (for pause/seek from the fleet UI slider).
+  // Only seek if the difference is material (> 0.5s) to avoid fighting the video decoder.
   useEffect(() => {
     if (videoRef.current && videoDuration > 0) {
-      const diff = Math.abs(videoRef.current.currentTime - fleetElapsedTime);
+      const clampedTime = Math.min(fleetElapsedTime, videoDuration);
+      const diff = Math.abs(videoRef.current.currentTime - clampedTime);
       if (diff > 0.5) {
-        videoRef.current.currentTime = fleetElapsedTime;
-      }
-      
-      const now = performance.now();
-      if (now - lastSyncTime.current > 100) {
-          videoRef.current.currentTime = fleetElapsedTime;
-          lastSyncTime.current = now;
+        videoRef.current.currentTime = clampedTime;
       }
     }
   }, [fleetElapsedTime, videoDuration]);
+
+  // RAF loop: publish this journey's authoritative currentTime to the parent.
+  // This is the sole source of GPS truth for this journey (RC-3 fix).
+  useEffect(() => {
+    if (!onVideoTimeUpdate || videoDuration <= 0) return;
+    const tick = () => {
+      if (videoRef.current) {
+        onVideoTimeUpdate(mission.id, videoRef.current.currentTime, videoDuration);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [mission.id, videoDuration, onVideoTimeUpdate]);
 
   return (
     <div className="flex gap-4 items-center bg-card p-2 rounded-lg border border-border shadow-sm">
@@ -111,7 +128,7 @@ function FleetJourneyPlayer({ mission, aiResults, videoId, fleetElapsedTime }: F
           <span className="font-bold font-mono text-sm truncate text-primary">{mission.bus_id}</span>
         </div>
         <div className="text-[10px] text-muted-foreground truncate uppercase font-bold tracking-widest">{mission.route_name}</div>
-        <div className="text-[10px] font-mono mt-1 text-muted-foreground">TIME: {fleetElapsedTime.toFixed(1)}s</div>
+        <div className="text-[10px] font-mono mt-1 text-muted-foreground">TIME: {Math.min(fleetElapsedTime, videoDuration).toFixed(1)}s / {videoDuration.toFixed(1)}s</div>
       </div>
     </div>
   );
@@ -127,6 +144,21 @@ export function FleetReplay() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [maxDuration, setMaxDuration] = useState(100);
+
+  // RC-3 fix: per-journey video times — GPS uses these, not the fleet wall-clock.
+  // Key: mission.id, Value: { currentTime: number, duration: number }
+  const [journeyVideoTimes, setJourneyVideoTimes] = useState<Record<string, { currentTime: number; duration: number }>>({});
+
+  const handleVideoTimeUpdate = useCallback((missionId: string, currentTime: number, duration: number) => {
+    setJourneyVideoTimes(prev => {
+      const prev_entry = prev[missionId];
+      // Only trigger re-render if values actually changed by a meaningful amount
+      if (prev_entry && Math.abs(prev_entry.currentTime - currentTime) < 0.05 && prev_entry.duration === duration) {
+        return prev;
+      }
+      return { ...prev, [missionId]: { currentTime, duration } };
+    });
+  }, []);
 
   // Map Filter State
   const [activeLayer, setActiveLayer] = useState<ActiveMapLayer>('observed');
@@ -208,10 +240,27 @@ export function FleetReplay() {
   });
 
   useEffect(() => {
-    if (fleetData?.maxLen) {
-      setMaxDuration(fleetData.maxLen);
+    if (fleetData?.results) {
+      // RC-4 fix: maxDuration is the max of actual video durations (from HTML5 metadata via
+      // journeyVideoTimes), not a hardcoded 100 or an approximation from AI metadata.
+      // We still use aiResults.metadata as a first estimate before videos load.
+      let maxLen = 0;
+      fleetData.results.forEach(({ aiResults }) => {
+        const d = aiResults?.video?.duration_seconds || aiResults?.metadata?.video_duration || 0;
+        if (d > maxLen) maxLen = d;
+      });
+      if (maxLen > 0) setMaxDuration(maxLen);
     }
   }, [fleetData]);
+
+  // RC-4 live update: once videos are loaded, refine maxDuration from real HTML5 durations.
+  useEffect(() => {
+    const videoDurations = Object.values(journeyVideoTimes).map(v => v.duration).filter(d => d > 0);
+    if (videoDurations.length > 0) {
+      const max = Math.max(...videoDurations);
+      if (max > 0) setMaxDuration(max);
+    }
+  }, [journeyVideoTimes]);
 
   // 3. Prepare centralized event timeline
   const allEvents = useMemo(() => {
@@ -408,52 +457,58 @@ export function FleetReplay() {
       });
   }, [allEvents, maxDuration]);
 
-  // Handle bus positions and dynamic road layer (Green for observed)
+  // RC-3/RC-6 fix: Bus positions on the map are derived from per-journey video.currentTime,
+  // NOT from fleetElapsedTime. This ensures:
+  //   - Pausing holds the bus at the correct video frame position
+  //   - Seeking jumps the bus immediately to the correct position
+  //   - A shorter video's bus holds at the destination after its video ends
+  //   - A longer video's bus keeps moving without affecting the shorter one
   useEffect(() => {
      if (!fleetData?.results) return;
      
-     // Throttled UI updates for positions
-     if (Math.abs(fleetElapsedTime - lastProcessedTime.current) > 0.5) {
-         
-         let currentPositionsLocal: Record<string, InterpolatedPosition> = {};
-         let currentSegInt = {...segmentIntelligences};
-         let updatedKm = 0;
-         
-         fleetData.results.forEach(({ mission, routePoints }) => {
-            if (routePoints.length === 0) return;
-            const pos = getPositionAtTime(routePoints, fleetElapsedTime, maxDuration);
-            if (pos) {
-               currentPositionsLocal[mission.id] = pos;
-               
-               // Mark segments up to current as observed (green) unless they are already red/blue
-               const mId = mission.id;
-               if (!currentSegInt[mId]) currentSegInt[mId] = {};
-               for (let i = 0; i <= pos.currentSequence; i++) {
-                   if (!currentSegInt[mId][i]) {
-                       currentSegInt[mId][i] = { observed: true, pothole: false, waterlogging: false };
-                   } else {
-                       currentSegInt[mId][i].observed = true;
-                   }
+     let currentPositionsLocal: Record<string, InterpolatedPosition> = {};
+     let currentSegInt = {...segmentIntelligences};
+     let updatedKm = 0;
+     
+     fleetData.results.forEach(({ mission, routePoints }) => {
+        if (routePoints.length === 0) return;
+        
+        // Use this journey's own video.currentTime (authoritative GPS clock)
+        // Fall back to fleetElapsedTime only if the video hasn't loaded its metadata yet.
+        const jvt = journeyVideoTimes[mission.id];
+        const videoCurrentTime = jvt ? jvt.currentTime : fleetElapsedTime;
+        const videoDuration = jvt?.duration || maxDuration;
+        
+        const pos = getPositionAtTime(routePoints, videoCurrentTime, videoDuration);
+        if (pos) {
+           currentPositionsLocal[mission.id] = pos;
+           
+           const mId = mission.id;
+           if (!currentSegInt[mId]) currentSegInt[mId] = {};
+           for (let i = 0; i <= pos.currentSequence; i++) {
+               if (!currentSegInt[mId][i]) {
+                   currentSegInt[mId][i] = { observed: true, pothole: false, waterlogging: false };
+               } else {
+                   currentSegInt[mId][i].observed = true;
                }
-               updatedKm += (pos.currentSequence * 0.05); // rough estimate
-            }
-         });
-         
-         setCurrentPositions(currentPositionsLocal);
-         setSegmentIntelligences(currentSegInt);
-         setObservedRouteKm(updatedKm);
-     }
+           }
+           updatedKm += (pos.currentSequence * 0.05);
+        }
+     });
+     
+     setCurrentPositions(currentPositionsLocal);
+     setSegmentIntelligences(currentSegInt);
+     setObservedRouteKm(updatedKm);
 
+     // Event processing still uses fleet wall-clock for ordering across journeys
      if (fleetElapsedTime < lastProcessedTime.current) {
-        // Seek backward
         rebuildState(0, fleetElapsedTime, true);
      } else {
-        // Normal playback or forward seek
         rebuildState(lastProcessedTime.current, fleetElapsedTime, false);
      }
      
      lastProcessedTime.current = fleetElapsedTime;
-  }, [fleetElapsedTime, fleetData, rebuildState]);
+  }, [fleetElapsedTime, journeyVideoTimes, fleetData, rebuildState, maxDuration]);
 
   const allRoutePoints = useMemo(() => {
     let pts: [number, number][] = [];
@@ -545,6 +600,7 @@ export function FleetReplay() {
                  aiResults={data.aiResults}
                  videoId={data.videoId}
                  fleetElapsedTime={fleetElapsedTime}
+                 onVideoTimeUpdate={handleVideoTimeUpdate}
               />
             ))}
           </div>

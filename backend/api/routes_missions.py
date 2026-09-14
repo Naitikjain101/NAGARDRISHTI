@@ -22,13 +22,18 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+
+
 from fastapi import APIRouter, HTTPException, Body, Query
 from fastapi.responses import JSONResponse
+
 
 from db.supabase_client import get_supabase
 from db.mission_repository import MissionRepository
 from missions.ingestion import MissionIngester, MissionIngestionError
 from missions import session as session_manager
+
+UPLOAD_DIR = Path("uploads")
 
 logger = logging.getLogger(__name__)
 
@@ -133,14 +138,47 @@ async def create_journey(req: JourneyCreateRequest):
             "status": "ONLINE"
         }).execute()
         
-    # 2. Insert Journey (demo_missions)
-    # Using QUEUED status as required by Phase 1 instructions
+    # 2. Resolve the authoritative video duration.
+    #    Priority: frontend-supplied req.duration (if > 0) → disk read → fallback error.
+    #    Never use point-count-based spacing — that is RC-1.
+    video_duration = req.duration if req.duration > 0 else 0.0
+    duration_source = "frontend"
+
+    if video_duration <= 0 and req.video_id:
+        # Frontend did not supply duration (pre-uploaded path, race condition, or 0 default).
+        # Read it authoritatively from the video file on disk.
+        try:
+            from video.reader import read_video_info, VideoReadError
+            for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]:
+                vpath = UPLOAD_DIR / f"{req.video_id}{ext}"
+                if vpath.exists():
+                    info = read_video_info(str(vpath))
+                    disk_duration = info.duration_seconds
+                    if disk_duration > 0:
+                        if video_duration > 0 and abs(disk_duration - video_duration) > 0.5:
+                            logger.warning(
+                                "[VIDEO-GPS SYNC] Duration mismatch video_id=%s frontend=%.3fs disk=%.3fs — using disk value",
+                                req.video_id, video_duration, disk_duration,
+                            )
+                        video_duration = disk_duration
+                        duration_source = "disk"
+                    break
+        except Exception as exc:
+            logger.warning("[VIDEO-GPS SYNC] Could not read video duration from disk video_id=%s: %s", req.video_id, exc)
+
+    if video_duration <= 0:
+        logger.warning(
+            "[VIDEO-GPS SYNC] video_duration still 0 after all sources for video_id=%s — route timestamps will be 0",
+            req.video_id,
+        )
+
+    # 3. Insert Journey (demo_missions)
     mission_row = {
         "bus_id": req.bus_id,
         "route_id": req.bus_id,
         "route_name": req.journey_name,
-        "video_filename": f"{req.video_id}_{req.video_filename}", # Unique name 
-        "duration_seconds": req.duration,
+        "video_filename": f"{req.video_id}_{req.video_filename}",
+        "duration_seconds": video_duration,
         "status": req.status,
         "metadata": {
             "bus_name": req.bus_name,
@@ -158,28 +196,35 @@ async def create_journey(req: JourneyCreateRequest):
     record = res.data[0]
     mission_id = record["id"]
 
-    # 3. Insert Route Points if provided (Phase 2)
+    # 4. Insert Route Points with correct timestamps (RC-1 fix).
+    #    Rule: first point = t=0, last point = t=video_duration exactly.
+    #    Intermediate points are linearly interpolated — no index-based unit drift.
     if req.route_points:
         num_points = len(req.route_points)
-        # We need to distribute the `req.duration` across these points.
-        # If duration is 0, we'll just space them out by 1 second for sanity.
-        total_time = req.duration if req.duration > 0 else float(num_points)
         
         db_points = []
         for i, pt in enumerate(req.route_points):
-            # Synthetic deterministic timestamp
-            # NOTE: This is a synthetic timing for Phase 2 demo purposes only
-            synthetic_ts = (i / max(1, num_points - 1)) * total_time if num_points > 1 else 0.0
+            if num_points == 1:
+                ts = 0.0
+            else:
+                # Linear interpolation: first=0, last=video_duration, strictly monotonic.
+                ts = round((i / (num_points - 1)) * video_duration, 6)
             
             db_points.append({
                 "mission_id": mission_id,
-                "timestamp_seconds": synthetic_ts,
+                "timestamp_seconds": ts,
                 "latitude": pt.lat,
                 "longitude": pt.lng
             })
-            
-        # Supabase API allows bulk inserts
+
         client.table("route_points").insert(db_points).execute()
+
+        logger.info(
+            "[VIDEO-GPS SYNC] journey_created mission_id=%s video_id=%s duration=%.3fs "
+            "duration_source=%s point_count=%d first_ts=%.3f last_ts=%.3f",
+            mission_id, req.video_id, video_duration, duration_source,
+            num_points, db_points[0]["timestamp_seconds"], db_points[-1]["timestamp_seconds"],
+        )
 
     return {
         "mission_id": mission_id,

@@ -32,6 +32,17 @@ export function Overview() {
   const potholes = incidents.filter(i => i.type === 'pothole');
   const waterlogging = incidents.filter(i => i.type === 'waterlogging');
   
+  const { data: busData } = useQuery({
+    queryKey: ['mapBuses'],
+    queryFn: async () => {
+      const res = await fetch('/api/map/buses');
+      if (!res.ok) return { buses: [] };
+      return res.json();
+    },
+    refetchInterval: 5000,
+  });
+  const activeBuses = busData?.buses?.length ?? 0;
+
   // Data Freshness
   const latestIncident = incidents.length > 0 ? incidents[0] : null;
   const lastUpdate = latestIncident ? new Date(latestIncident.created_at) : null;
@@ -81,7 +92,7 @@ export function Overview() {
         <KpiCard title="Critical" value={criticalIncidents.length} icon={AlertOctagon} alert={criticalIncidents.length > 0} />
         <KpiCard title="Waterlogging" value={waterlogging.length} icon={Droplets} />
         <KpiCard title="Potholes" value={potholes.length} icon={AlertTriangle} />
-        <KpiCard title="Active Buses" value="0" icon={Bus} />
+        <KpiCard title="Active Buses" value={activeBuses} icon={Bus} />
         <KpiCard title="AI Health" value={systemStatus?.status === 'ok' ? 'OK' : 'ERR'} icon={ServerCrash} alert={systemStatus?.status !== 'ok'} />
       </div>
 

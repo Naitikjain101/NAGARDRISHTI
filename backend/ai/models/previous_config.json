@@ -1,7 +1,7 @@
 {
   "POTHOLE": {
     "model_id": "yolo26m_pothole_best",
-    "confidence_threshold": 0.83
+    "confidence_threshold": 0.45
   },
   "WATERLOGGING": {
     "model_id": "waterlogging_v2",
