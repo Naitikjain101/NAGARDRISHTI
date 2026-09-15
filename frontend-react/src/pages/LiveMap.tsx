@@ -286,7 +286,7 @@ export function LiveMap() {
                     
                     <div className="mt-2 text-[10px] text-muted-foreground space-y-1">
                       <div className="flex items-center gap-1"><Wrench className="w-3 h-3" /> {inc.action?.assigned_team}</div>
-                      <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Updated {new Date(inc.action?.updated_at || inc.last_seen_at).toLocaleDateString()}</div>
+                      <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Updated {new Date(inc.action?.updated_at || inc.last_seen_at || inc.created_at || new Date().toISOString()).toLocaleDateString()}</div>
                     </div>
                   </button>
                 ))}

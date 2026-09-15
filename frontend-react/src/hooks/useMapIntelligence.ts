@@ -30,7 +30,8 @@ export interface MapIncident {
   unique_journey_count?: number;
   dedup_status: string;
   first_seen_at: string;
-  last_seen_at: string;
+  last_seen_at?: string;
+  created_at?: string;
   timestamp?: number;
   // Phase 6 extensions
   priority_score?: number;

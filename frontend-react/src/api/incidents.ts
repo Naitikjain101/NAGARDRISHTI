@@ -22,6 +22,9 @@ export interface Incident {
   suppression_reason: string | null;
   track_id: number | null;
   created_at: string;
+  metadata?: any;
+  source_mission_id?: string;
+  route_name?: string;
 }
 
 export interface IncidentsResponse {

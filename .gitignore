@@ -67,3 +67,10 @@ Thumbs.db
 # Ultralytics cache
 runs/
 datasets/
+
+backend/results_a/
+backend/results_b/
+backend/benchmark_results/
+backend/demo_videos/
+frontend-react/dist/
+backend/data/

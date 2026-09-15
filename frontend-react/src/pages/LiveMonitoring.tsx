@@ -283,8 +283,8 @@ export function LiveMonitoring() {
               incident_type: ev.event_type,
               severity: ev.max_confidence >= 0.8 ? 'HIGH' : 'MEDIUM',
               status: 'OPEN',
-              latitude: evPos?.lat || routePoints[0]?.lat || 26.9124,
-              longitude: evPos?.lng || routePoints[0]?.lng || 75.7873,
+              latitude: evPos?.lat || routePoints[0]?.latitude || 26.9124,
+              longitude: evPos?.lng || routePoints[0]?.longitude || 75.7873,
               confidence: ev.max_confidence,
               first_seen_at: new Date().toISOString(),
               metadata: { 

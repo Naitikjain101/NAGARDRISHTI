@@ -49,7 +49,7 @@ export function RoadIntelligence() {
     // 2. Filter incidents by route if selected
     const filteredIncidents = incidents.filter(i => {
       if (selectedRoute === 'all') return true;
-      let rName = i.metadata?.route_name || missionMap.get(i.video_id) || missionMap.get(i.source_mission_id) || 'Unknown Route';
+      let rName = i.metadata?.route_name || missionMap.get(i.video_id) || missionMap.get(i.source_mission_id || '') || 'Unknown Route';
       return rName === selectedRoute;
     });
 
@@ -74,7 +74,7 @@ export function RoadIntelligence() {
       let route = 'Unknown Route';
       if (i.metadata?.route_name) route = i.metadata.route_name;
       else if (i.video_id) route = missionMap.get(i.video_id) || 'Unknown Route';
-      else if (i.source_mission_id) route = missionMap.get(i.source_mission_id) || 'Unknown Route';
+      else if (i.source_mission_id) route = missionMap.get(i.source_mission_id || '') || 'Unknown Route';
       
       const key = route;
       
@@ -283,7 +283,7 @@ export function RoadIntelligence() {
                 {attentionQueue.length > 0 ? (
                   <div className="divide-y divide-border/50">
                     {attentionQueue.map((incident, i) => {
-                      const routeName = incident.route_name || incident.metadata?.route_name || missionMap.get(incident.video_id) || missionMap.get(incident.source_mission_id) || 'Unknown Route';
+                      const routeName = incident.route_name || incident.metadata?.route_name || missionMap.get(incident.video_id) || missionMap.get(incident.source_mission_id || '') || 'Unknown Route';
                       
                       return (
                         <div 
