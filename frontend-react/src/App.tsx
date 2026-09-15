@@ -4,7 +4,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { ToastProvider } from './components/ui/Toast'
 
 import { AppShell } from './components/layout/AppShell'
-import { Overview } from './pages/Overview'
+import { CommandCenter } from './pages/CommandCenter'
 import { LiveMonitoring } from './pages/LiveMonitoring'
 import { Settings } from './pages/Settings'
 import { VideoAnalysis } from './pages/VideoAnalysis'
@@ -34,7 +34,7 @@ function App() {
             <Routes>
               {/* Main application shell */}
               <Route path="/" element={<AppShell />}>
-                <Route index element={<Overview />} />
+                <Route index element={<CommandCenter />} />
                 <Route path="map" element={<LiveMap />} />
                 <Route path="fleet-replay" element={<FleetReplay />} />
                 <Route path="monitoring" element={<LiveMonitoring />} />

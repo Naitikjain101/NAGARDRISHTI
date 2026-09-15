@@ -23,7 +23,7 @@ export function calculatePriorityScore(incident: Partial<MapIncident>): Priority
   else if (sev === 'MODERATE' || sev === 'MEDIUM') severityScore = 20;
   else severityScore = 10; // LOW or unknown
 
-  // B. Fleet Evidence - MAX 25
+  // B. Detection Evidence - MAX 25
   let fleetEvidenceScore = 0;
   const uniqueBuses = incident.observed_by?.length || 0;
   if (uniqueBuses === 1) fleetEvidenceScore = 10;

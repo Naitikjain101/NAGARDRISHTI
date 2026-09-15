@@ -217,9 +217,9 @@ export function VideoAnalysis() {
 
         {/* Ready to process / Processing / Completed Workspace */}
         {videoId && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full min-h-[600px]">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full min-h-0">
             {/* Left Column - Video & Metadata */}
-            <div className="xl:col-span-8 flex flex-col gap-6">
+            <div className="xl:col-span-8 flex flex-col gap-6 min-h-0 overflow-y-auto custom-scrollbar pr-2 pb-4">
               
               {/* Video Player Area */}
               <div className="relative bg-black rounded-lg border border-border overflow-hidden shadow-sm flex-shrink-0">
@@ -338,7 +338,7 @@ export function VideoAnalysis() {
             </div>
 
             {/* Right Column - Detection Summary */}
-            <div className="xl:col-span-4 flex flex-col gap-6">
+            <div className="xl:col-span-4 flex flex-col gap-6 min-h-0 overflow-y-auto custom-scrollbar pr-2 pb-4">
               <DetectionSummary results={processingComplete ? resultsData : null} onSeek={handleSeek} />
             </div>
           </div>

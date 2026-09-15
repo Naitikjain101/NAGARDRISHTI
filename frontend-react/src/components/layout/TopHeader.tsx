@@ -37,15 +37,12 @@ export function TopHeader() {
 
   return (
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-5 shrink-0 z-30">
-      {/* Left: current page breadcrumb */}
+      {/* Left: application context */}
       <div className="flex items-center gap-3">
-        <div>
-          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-            NagarDrishti
-          </span>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-semibold text-foreground">{pageTitle}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-foreground">NagarDrishti</span>
+          <span className="text-muted-foreground text-xs">/</span>
+          <span className="text-xs font-medium text-muted-foreground">{pageTitle}</span>
         </div>
       </div>
 
@@ -63,7 +60,7 @@ export function TopHeader() {
             {/* Unread dot — will be driven by notification data later */}
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden="true" />
           </button>
-          {notifOpen && <Notifications />}
+          {notifOpen && <Notifications onClose={() => setNotifOpen(false)} />}
         </div>
 
         {/* User stub */}

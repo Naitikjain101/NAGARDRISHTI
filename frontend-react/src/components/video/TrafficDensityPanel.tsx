@@ -12,12 +12,26 @@ export function TrafficDensityPanel({ results, currentTime }: TrafficDensityPane
   const vehicleCounts = results?.vehicle_counts || { total_unique_vehicles: 0, by_class: {} };
   const densityWindows = results?.density_windows || [];
 
-  // Find the active window based on currentTime
+  // Find the active window based on currentTime, or fallback to the most recent past window
   const currentWindow = useMemo(() => {
     if (!densityWindows.length) return null;
-    return densityWindows.find(
-      (w: any) => currentTime >= w.window_start && currentTime < w.window_end
-    ) || densityWindows[densityWindows.length - 1];
+    
+    // Exact match
+    let match = densityWindows.find(
+      (w: any) => currentTime >= w.window_start && currentTime <= w.window_end
+    );
+    
+    if (!match) {
+      // Find the most recent window that has already started
+      const pastWindows = [...densityWindows].filter(w => w.window_start <= currentTime);
+      if (pastWindows.length > 0) {
+        // Sort descending by start time
+        pastWindows.sort((a, b) => b.window_start - a.window_start);
+        match = pastWindows[0];
+      }
+    }
+    
+    return match || densityWindows[0];
   }, [densityWindows, currentTime]);
 
   const densityLevel = currentWindow?.density_level?.toUpperCase() || 'UNKNOWN';
@@ -52,20 +66,28 @@ export function TrafficDensityPanel({ results, currentTime }: TrafficDensityPane
       ) : (
         <div className="p-4 flex-1 flex flex-col gap-5">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Density</p>
-              <div className="flex items-baseline gap-2">
-                <span className={cn('px-2.5 py-0.5 rounded text-xs font-bold border', densityColor)}>
-                  {densityLevel}
-                </span>
+            {currentWindow ? (
+              <>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Density</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className={cn('px-2.5 py-0.5 rounded text-xs font-bold border', densityColor)}>
+                      {densityLevel}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Vehicles / min</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {currentWindow.unique_vehicle_count}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground italic py-2">
+                No traffic observation at this timestamp.
               </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Vehicles / min</p>
-              <p className="text-2xl font-bold text-foreground">
-                {currentWindow?.unique_vehicle_count ?? 0}
-              </p>
-            </div>
+            )}
           </div>
 
           <div>

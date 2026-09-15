@@ -10,10 +10,10 @@ export function AppShell() {
         <Sidebar />
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto"
+          className="flex-1 min-h-0 flex flex-col relative overflow-y-auto"
           tabIndex={-1}
         >
-          <div className="p-6 min-h-full">
+          <div className="flex-1 p-6 flex flex-col min-h-0">
             <Outlet />
           </div>
         </main>

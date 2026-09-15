@@ -5,7 +5,7 @@ import { useMapIntelligence, type MapIncident } from '@/hooks/useMapIntelligence
 import { IncidentDrawer } from '@/components/incidents/IncidentDrawer';
 import { Layers, AlertTriangle, Car, Activity, PlayCircle, Search, Wrench, CheckCircle2, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { JourneyReplay } from './JourneyReplay';
+import { Navigate } from 'react-router-dom';
 import { FleetReplay } from './FleetReplay';
 
 export function LiveMap() {
@@ -22,7 +22,8 @@ export function LiveMap() {
   const { incidents: allIncidents, buses, summary, isLoading } = useMapIntelligence();
 
   if (missionId) {
-    return <JourneyReplay missionId={missionId} />;
+    // Redirect legacy mission map links to the new Live Monitoring dashboard
+    return <Navigate to={`/monitoring`} replace />;
   }
 
   if (demoMode) {
@@ -89,7 +90,7 @@ export function LiveMap() {
         </div>
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/map?demo=fleet')}
+            onClick={() => navigate('/monitoring')}
             className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all border border-indigo-400"
           >
             <PlayCircle className="w-4 h-4" /> START FLEET DEMO

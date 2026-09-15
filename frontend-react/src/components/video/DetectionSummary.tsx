@@ -21,8 +21,9 @@ export function DetectionSummary({ results, onSeek }: DetectionSummaryProps) {
     );
   }
 
-  const potholes = results.pothole_events || [];
-  const waterlogging = results.waterlogging_events || [];
+  // Show events that meet the confidence threshold instead of only confirmed ones, so they match video boxes.
+  const potholes = (results.pothole_events || []).filter((e: any) => (e.max_confidence || e.confidence) >= 0.65);
+  const waterlogging = (results.waterlogging_events || []).filter((e: any) => (e.max_confidence || e.confidence) >= 0.55);
   const allEvents = [...potholes, ...waterlogging].sort(
     (a, b) => a.first_seen_timestamp - b.first_seen_timestamp
   );
@@ -48,7 +49,7 @@ export function DetectionSummary({ results, onSeek }: DetectionSummaryProps) {
           <span className="text-2xl font-bold">{potholes.length}</span>
         </div>
         <div className="bg-card p-3 flex flex-col items-center justify-center">
-          <div className="flex items-center gap-1.5 text-blue-500 mb-1">
+          <div className="flex items-center gap-1.5 text-cyan-500 mb-1">
             <Droplets className="h-4 w-4" />
             <span className="text-xs font-semibold uppercase tracking-wider">Water</span>
           </div>
@@ -72,7 +73,7 @@ export function DetectionSummary({ results, onSeek }: DetectionSummaryProps) {
               >
                 <div className={cn(
                   "mt-0.5 p-1 rounded shrink-0",
-                  isPothole ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+                  isPothole ? "bg-orange-500/20 text-orange-500" : "bg-cyan-500/20 text-cyan-500"
                 )}>
                   {isPothole ? <AlertTriangle className="h-3.5 w-3.5" /> : <Droplets className="h-3.5 w-3.5" />}
                 </div>
@@ -87,7 +88,7 @@ export function DetectionSummary({ results, onSeek }: DetectionSummaryProps) {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] text-muted-foreground">
-                      Conf: {Math.round((evt.confidence || 0) * 100)}%
+                      {evt.confidence != null ? `Conf: ${Math.round(evt.confidence * 100)}%` : 'Confidence unavailable'}
                     </span>
                     {evt.status === 'confirmed' && (
                       <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1 rounded">Verified</span>

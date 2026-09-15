@@ -30,12 +30,22 @@ def get_action_type_for_incident(incident_type: str) -> str:
     return mapping.get(incident_type.lower(), "Field inspection required")
 
 def get_department_for_incident(incident_type: str) -> Optional[str]:
-    # No longer hardcoded default departments to allow UNASSIGNED detection
-    return None
+    mapping = {
+        "pothole": "Roads & Infrastructure Dept.",
+        "road_damage": "Roads & Infrastructure Dept.",
+        "waterlogging": "Drainage & Water Management Dept.",
+        "traffic_infrastructure": "Traffic Engineering Dept.",
+        "hazard": "Emergency Field Response Dept."
+    }
+    return mapping.get(incident_type.lower(), "Field Operations Dept.")
 
 def get_team_for_incident(incident_type: str) -> Optional[str]:
-    # No longer hardcoded default teams to allow UNASSIGNED detection
-    return None
+    mapping = {
+        "pothole": "Road Repair Squad",
+        "waterlogging": "Drainage Response Team",
+        "traffic_infrastructure": "Traffic Ops Team",
+    }
+    return mapping.get(incident_type.lower(), None)
 
 
 @router.get("/actions")
@@ -99,7 +109,7 @@ async def create_action(incident_id: str):
         now = get_current_utc()
         action_payload = {
             "incident_id": incident_id,
-            "status": "UNASSIGNED", # Properly unassigned
+            "status": "ASSIGNED",
             "assigned_department": get_department_for_incident(incident_type),
             "assigned_team": get_team_for_incident(incident_type),
             "action_type": get_action_type_for_incident(incident_type),
@@ -150,9 +160,9 @@ async def update_action(action_id: str, update_data: ActionUpdate):
             
         action_record = res.data[0]
         
-        # Sync RESOLVED status to the Incident
-        if update_data.status == "RESOLVED" and action_record.get('incident_id'):
-            client.table('incidents').update({"status": "RESOLVED"}).eq('id', action_record['incident_id']).execute()
+        # Sync incident status if resolving/rejecting/in_progress
+        if update_data.status in ["IN_PROGRESS", "RESOLVED", "REJECTED"]:
+            client.table("incidents").update({"status": update_data.status}).eq("id", res.data[0]["incident_id"]).execute()
             
         return action_record
     except HTTPException:

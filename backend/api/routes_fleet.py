@@ -56,6 +56,22 @@ async def get_bus(bus_id: str):
     bus['latest_telemetry'] = telem_repo.get_latest_for_bus(bus_id)
     return bus
 
+@router.delete("/{bus_id}")
+async def delete_bus(bus_id: str):
+    """Delete a single bus and its associated data if needed."""
+    client = get_supabase()
+    
+    # Optional: we can check if it has journeys, but Supabase cascading deletes or manual delete handles it.
+    res = client.table("buses").delete().eq("id", bus_id).execute()
+    
+    if not res.data:
+        # Maybe the ID is fleet_number, let's try that too
+        res2 = client.table("buses").delete().eq("fleet_number", bus_id).execute()
+        if not res2.data:
+            raise HTTPException(status_code=404, detail="Bus not found or could not be deleted")
+            
+    return {"status": "success", "message": f"Bus {bus_id} deleted successfully"}
+
 @router.get("/analytics/summary")
 async def get_fleet_summary():
     """Return fleet KPIs, coverage, and incident metrics for Phase 6."""

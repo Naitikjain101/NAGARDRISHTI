@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Activity, Video,
   MapPin, Navigation, AlertTriangle, Bus,
-  Wrench, Settings, ChevronLeft, ChevronRight, Map, Waves
+  Wrench, Settings, Map, Waves
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -86,8 +86,13 @@ export function Sidebar() {
     >
       {/* Logo / Branding */}
       <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setCollapsed(c => !c)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(c => !c) }}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         style={{ borderBottom: '1px solid var(--sidebar-border)' }}
-        className={cn('flex items-center h-14 shrink-0 px-4 gap-3', collapsed && 'justify-center px-2')}
+        className={cn('flex items-center h-14 shrink-0 px-4 gap-3 cursor-pointer hover:bg-white/5 transition-colors', collapsed && 'justify-center px-2')}
       >
         {/* Logo mark */}
         <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
@@ -156,19 +161,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed(c => !c)}
-        style={{ backgroundColor: 'var(--sidebar-bg)', border: '1px solid var(--sidebar-border)' }}
-        className="absolute -right-3 top-20 z-20 flex h-6 w-6 items-center justify-center rounded-full shadow-sm hover:brightness-125 transition-all"
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {collapsed
-          ? <ChevronRight className="h-3 w-3 text-white" />
-          : <ChevronLeft className="h-3 w-3 text-white" />
-        }
-      </button>
+
     </aside>
   )
 }

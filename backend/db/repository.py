@@ -102,7 +102,7 @@ class IncidentRepository:
             if 'updated_at' not in incident_data:
                 incident_data['updated_at'] = get_current_utc()
                 
-            response = self.client.table('incidents').insert(incident_data).execute()
+            response = self.client.table('incidents').upsert(incident_data).execute()
             return response.data[0] if response.data else None
         except Exception as e:
             logger.error(f"Failed to create incident: {e}")
@@ -240,14 +240,26 @@ class TrafficWindowRepository:
 
     def get_history(self, video_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         try:
-            query = self.client.table('traffic_windows').select('*').order('created_at', desc=True)
+            query = self.client.table('traffic_windows').select('*, ai_jobs(video_id)').order('created_at', desc=True)
             if video_id:
-                query = query.eq('video_id', video_id)
+                # We can't filter by a joined table directly using .eq in standard postgrest without inner joins
+                # but we'll fetch all and filter in memory if video_id is provided
+                pass
             
             response = query.limit(limit).execute()
-            return response.data
+            
+            results = []
+            for r in response.data:
+                v_id = r.get("ai_jobs", {}).get("video_id") if r.get("ai_jobs") else None
+                if video_id and v_id != video_id:
+                    continue
+                r["video_id"] = v_id
+                results.append(r)
+                
+            return results
         except Exception as e:
             logger.error(f"Failed to fetch traffic history: {e}")
+            return []
             return []
 
 

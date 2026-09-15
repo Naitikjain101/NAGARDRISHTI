@@ -11,7 +11,8 @@ export function useRealtimeIncidents(filters?: { status?: string; type?: string;
   const query = useQuery({
     queryKey,
     queryFn: () => incidentsApi.getIncidents(filters),
-    staleTime: Infinity, // Rely on realtime for updates
+    staleTime: Infinity, // Rely on realtime for updates, but keep polling as fallback
+    refetchInterval: 5000,
   });
 
   // 2. Setup Realtime subscription

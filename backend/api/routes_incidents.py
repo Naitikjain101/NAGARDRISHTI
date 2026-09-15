@@ -14,6 +14,31 @@ class IncidentUpdate(BaseModel):
     validation_status: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
+@router.post("/")
+async def create_incident(incident_data: Dict[str, Any] = Body(...)):
+    """Create or upsert an incident."""
+    client = get_supabase()
+    repo = IncidentRepository(client)
+    # Extract observation data if provided
+    observation_data = incident_data.pop("observation", None)
+    
+    created = repo.create(incident_data)
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create incident")
+        
+    if observation_data:
+        try:
+            observation_data["incident_id"] = created["id"]
+            if "created_at" not in observation_data:
+                from utils.helpers import get_current_utc
+                observation_data["created_at"] = get_current_utc()
+            client.table("incident_observations").insert(observation_data).execute()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to save observation: {e}")
+            
+    return _record_to_dict(created)
+
 def _record_to_dict(inc: dict) -> dict:
     """Convert Supabase dict to API response dict matching the new schema."""
     return {

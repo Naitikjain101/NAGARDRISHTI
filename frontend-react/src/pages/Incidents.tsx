@@ -3,6 +3,7 @@ import { useRealtimeIncidents } from '@/hooks/useRealtimeIncidents';
 import { DataTable } from '@/components/incidents/DataTable';
 import { IncidentDrawer } from '@/components/incidents/IncidentDrawer';
 import type { Incident } from '@/api/incidents';
+
 import { Download, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -45,6 +46,41 @@ export function Incidents() {
         }
       />
 
+      {/* Metrics Panel */}
+      <div className="grid grid-cols-3 gap-4 mb-2">
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Incidents</p>
+            <p className="text-3xl font-black mt-1">{allIncidents.length}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-primary" />
+          </div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Open</p>
+            <p className="text-3xl font-black mt-1 text-orange-500">
+              {allIncidents.filter((i: any) => i.status === 'OPEN').length}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+          </div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Resolved</p>
+            <p className="text-3xl font-black mt-1 text-emerald-500">
+              {allIncidents.filter((i: any) => i.status === 'RESOLVED').length}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-emerald-500" />
+          </div>
+        </div>
+      </div>
+
       {/* Filter bar */}
       <div className="bg-card border border-border rounded-lg p-3 flex flex-wrap items-center gap-3">
         <SearchInput
@@ -83,8 +119,10 @@ export function Incidents() {
           aria-label="Filter by status"
         >
           <option value="">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="resolved">Resolved</option>
+          <option value="OPEN">Open</option>
+          <option value="ASSIGNED">Assigned</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="RESOLVED">Resolved</option>
         </Select>
 
         {(search || severityFilter || typeFilter || statusFilter) && (
@@ -112,6 +150,20 @@ export function Incidents() {
             {[1, 2, 3, 4, 5, 6].map(i => (
               <Skeleton key={i} className="h-12 w-full rounded-lg" />
             ))}
+          </div>
+        ) : allIncidents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 bg-card border border-border rounded-lg text-center h-[400px]">
+            <AlertTriangle className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+              No incidents recorded
+            </p>
+          </div>
+        ) : incidents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 bg-card border border-border rounded-lg text-center h-[400px]">
+            <AlertTriangle className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+              No active incidents matching filters
+            </p>
           </div>
         ) : (
           <DataTable

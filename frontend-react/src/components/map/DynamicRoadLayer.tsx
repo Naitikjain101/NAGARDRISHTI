@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Polyline } from 'react-leaflet';
 import { type RoutePoint } from '@/utils/routeInterpolation';
 
@@ -18,14 +18,9 @@ interface DynamicRoadLayerProps {
 }
 
 export function DynamicRoadLayer({ routePoints, segmentIntelligence, activeLayer }: DynamicRoadLayerProps) {
-  // Memoize the chunking algorithm to minimize react-leaflet rendering overhead
   const polylineChunks = useMemo(() => {
     if (!routePoints || routePoints.length < 2) return [];
 
-    // We build a list of segments rather than chunks, because overlapping lines (red+blue) need to be drawn per segment
-    // But for performance, we still group adjacent segments that share the exact same rendering state.
-    
-    // Define a rendering state string for easy comparison
     type RenderState = {
       color: string;
       weight: number;
@@ -33,49 +28,66 @@ export function DynamicRoadLayer({ routePoints, segmentIntelligence, activeLayer
       isTrafficOverlay?: boolean;
       trafficOpacity?: number;
       trafficColor?: string;
-      isBoth?: boolean; // Pothole + Waterlogging
+      hasBothHazards?: boolean;
     };
 
     const getRenderState = (intel: SegmentIntelligence | undefined): RenderState => {
       if (!intel || !intel.observed) {
-        return { color: '#475569', weight: 3, opacity: 0.3 }; // GRAY (Not observed)
+        // Not yet scanned — dim dashed gray route preview
+        return { color: '#64748b', weight: 3, opacity: 0.25 };
       }
 
+      // ── TRAFFIC LAYER ──────────────────────────────────────────────
       if (activeLayer === 'traffic') {
-        const trafficOpacityMap = { LOW: 0.3, MEDIUM: 0.6, HIGH: 0.8, CRITICAL: 1.0 };
-        const trafficColorMap = { LOW: '#22c55e', MEDIUM: '#eab308', HIGH: '#f97316', CRITICAL: '#dc2626' };
-        const intensity = intel.trafficDensity ? trafficOpacityMap[intel.trafficDensity] : 0.3;
+        // Yellow → Orange → Red → Dark Red gradient
+        const trafficColorMap = {
+          LOW:      '#facc15', // Yellow
+          MEDIUM:   '#f97316', // Orange
+          HIGH:     '#ef4444', // Red
+          CRITICAL: '#7f1d1d', // Dark Red
+        };
+        const trafficOpacityMap = { LOW: 0.6, MEDIUM: 0.75, HIGH: 0.9, CRITICAL: 1.0 };
         const color = intel.trafficDensity ? trafficColorMap[intel.trafficDensity] : '#22c55e';
-        
-        // Base observed gray road underneath, glowing traffic line on top
-        return { color: '#475569', weight: 4, opacity: 0.4, isTrafficOverlay: true, trafficOpacity: intensity, trafficColor: color };
+        const intensity = intel.trafficDensity ? trafficOpacityMap[intel.trafficDensity] : 0.5;
+        // Gray road base + colored traffic overlay
+        return {
+          color: '#475569',
+          weight: 4,
+          opacity: 0.3,
+          isTrafficOverlay: true,
+          trafficOpacity: intensity,
+          trafficColor: color,
+        };
       }
 
+      // ── POTHOLE LAYER ──────────────────────────────────────────────
       if (activeLayer === 'potholes') {
-        if (intel.pothole) return { color: '#ef4444', weight: 6, opacity: 0.9 }; // RED
-        return { color: '#22c55e', weight: 4, opacity: 0.6 }; // GREEN (Observed, no pothole filter focus)
+        if (intel.pothole) return { color: '#ef4444', weight: 7, opacity: 0.95 }; // RED
+        return { color: '#22c55e', weight: 4, opacity: 0.7 };                      // GREEN
       }
 
+      // ── WATERLOGGING LAYER ─────────────────────────────────────────
       if (activeLayer === 'waterlogging') {
-        if (intel.waterlogging) return { color: '#3b82f6', weight: 6, opacity: 0.9 }; // BLUE
-        return { color: '#22c55e', weight: 4, opacity: 0.6 }; // GREEN (Observed, no waterlogging filter focus)
+        if (intel.waterlogging) return { color: '#3b82f6', weight: 7, opacity: 0.95 }; // BLUE
+        return { color: '#22c55e', weight: 4, opacity: 0.7 };                           // GREEN
       }
 
-      // Default activeLayer === 'observed' (Road Health / Map Intelligence)
+      // ── ROADS / OBSERVED (Default) ─────────────────────────────────
       if (intel.pothole && intel.waterlogging) {
-        return { color: '#ef4444', weight: 6, opacity: 0.9, isBoth: true }; // RED + BLUE (handled in render)
+        // Both hazards — solid red base with dashed blue overlay applied separately
+        return { color: '#ef4444', weight: 7, opacity: 0.9, hasBothHazards: true };
       }
-      if (intel.pothole) return { color: '#ef4444', weight: 6, opacity: 0.9 }; // RED
+      if (intel.pothole)      return { color: '#ef4444', weight: 6, opacity: 0.9 }; // RED
       if (intel.waterlogging) return { color: '#3b82f6', weight: 6, opacity: 0.9 }; // BLUE
-      
-      // OBSERVED — NO CONFIGURED ROAD CONDITION DETECTED
-      return { color: '#22c55e', weight: 4, opacity: 0.8 }; // GREEN
+
+      // ── CLEAN / OBSERVED, NO ISSUES ────────────────────────────────
+      return { color: '#22c55e', weight: 4, opacity: 0.85 }; // GREEN
     };
 
-    const serializeState = (s: RenderState) => `${s.color}-${s.weight}-${s.opacity}-${s.isTrafficOverlay}-${s.trafficOpacity}-${s.trafficColor}-${s.isBoth}`;
+    const serializeState = (s: RenderState) =>
+      `${s.color}-${s.weight}-${s.opacity}-${s.isTrafficOverlay}-${s.trafficColor}-${s.hasBothHazards}`;
 
     const chunks: { positions: [number, number][]; state: RenderState }[] = [];
-    
     let currentChunkPositions: [number, number][] = [];
     let currentStateStr: string | null = null;
     let currentState: RenderState | null = null;
@@ -110,44 +122,45 @@ export function DynamicRoadLayer({ routePoints, segmentIntelligence, activeLayer
   return (
     <>
       {polylineChunks.map((chunk, index) => (
-        <div key={`chunk-wrapper-${index}`}>
-          {/* Base Layer */}
+        <React.Fragment key={`chunk-${index}`}>
+          {/* Base Road Line */}
           <Polyline
             positions={chunk.positions}
-            pathOptions={{ 
-              color: chunk.state.color, 
+            pathOptions={{
+              color: chunk.state.color,
               weight: chunk.state.weight,
               opacity: chunk.state.opacity,
             }}
           />
-          
-          {/* Waterlogging Dashed Overlay (When Both) */}
-          {chunk.state.isBoth && (
+
+          {/* Dashed Blue Waterlogging overlay when BOTH hazards present */}
+          {chunk.state.hasBothHazards && (
             <Polyline
               positions={chunk.positions}
-              pathOptions={{ 
-                color: '#3b82f6', 
-                weight: chunk.state.weight - 1, // Slightly thinner so red border is visible, or dashed
-                opacity: 1.0,
-                dashArray: '10, 15', // Dashed blue on solid red
+              pathOptions={{
+                color: '#60a5fa',
+                weight: chunk.state.weight - 2,
+                opacity: 0.9,
+                dashArray: '8, 12',
               }}
             />
           )}
 
-          {/* Traffic Density Glowing Overlay */}
+          {/* Traffic density glowing color overlay */}
           {chunk.state.isTrafficOverlay && (
             <Polyline
               positions={chunk.positions}
-              pathOptions={{ 
-                color: chunk.state.trafficColor, 
+              pathOptions={{
+                color: chunk.state.trafficColor!,
                 weight: 8,
-                opacity: chunk.state.trafficOpacity,
+                opacity: chunk.state.trafficOpacity!,
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
             />
           )}
-        </div>
+        </React.Fragment>
       ))}
     </>
   );
 }
-

@@ -65,6 +65,18 @@ export function Fleet() {
     }
   };
 
+  const handleDeleteBus = async (busId: string, fleetNumber: string) => {
+    if (!window.confirm(`Are you sure you want to delete bus ${fleetNumber}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/buses/${busId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete bus');
+      queryClient.invalidateQueries({ queryKey: ['fleet'] });
+      toast.success('Bus deleted', `Fleet vehicle ${fleetNumber} has been removed.`);
+    } catch (e) {
+      toast.error('Delete failed', 'Unable to delete the bus. Please try again.');
+    }
+  };
+
   const handleEditJourney = async (journeyId: string, currentName: string) => {
     const newName = window.prompt('Enter new route name:', currentName);
     if (!newName || newName === currentName) return;
@@ -136,13 +148,22 @@ export function Fleet() {
                       <p className="text-xs text-muted-foreground">{bus.route_id || 'Unknown Route'}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    bus.status === 'ONLINE' ? 'bg-green-500/10 text-green-500' :
-                    bus.status === 'WARNING' ? 'bg-amber-500/10 text-amber-500' :
-                    'bg-gray-500/10 text-gray-500'
-                  }`}>
-                    {bus.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      bus.status === 'ONLINE' ? 'bg-green-500/10 text-green-500' :
+                      bus.status === 'WARNING' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-red-500/10 text-red-500'
+                    }`}>
+                      {bus.status}
+                    </span>
+                    <button 
+                      onClick={() => handleDeleteBus(bus.id, bus.fleet_number)}
+                      className="p-1.5 hover:bg-red-500/10 rounded text-red-500/70 hover:text-red-500 transition-colors"
+                      title="Delete Bus"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Journeys List */}
@@ -158,8 +179,8 @@ export function Fleet() {
                           <h4 className="font-semibold text-sm line-clamp-1" title={journey.route_name}>
                             {journey.route_name}
                           </h4>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleEditJourney(journey.id, journey.route_name)} className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-foreground">
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <button onClick={() => handleEditJourney(journey.id, journey.route_name)} className="p-1 hover:bg-secondary rounded hover:text-foreground">
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button onClick={() => handleDeleteJourney(journey.id)} className="p-1 hover:bg-red-500/10 rounded text-red-500/70 hover:text-red-500">

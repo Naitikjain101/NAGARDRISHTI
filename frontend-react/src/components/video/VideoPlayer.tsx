@@ -96,9 +96,10 @@ export function VideoPlayer({ src, results, onTimeUpdate, seekTime }: VideoPlaye
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Prepare event markers for the timeline
-  const potholes = results?.pothole_events || [];
-  const waterlogging = results?.waterlogging_events || [];
+  // Prepare event markers for the timeline (only confirmed events)
+  const isConfirmed = (e: any) => e.status === 'confirmed' || e.status === 'CONFIRMED';
+  const potholes = (results?.pothole_events || []).filter(isConfirmed);
+  const waterlogging = (results?.waterlogging_events || []).filter(isConfirmed);
   const allEvents = [...potholes, ...waterlogging];
 
   return (

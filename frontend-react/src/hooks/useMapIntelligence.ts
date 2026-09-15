@@ -31,6 +31,7 @@ export interface MapIncident {
   dedup_status: string;
   first_seen_at: string;
   last_seen_at: string;
+  timestamp?: number;
   // Phase 6 extensions
   priority_score?: number;
   priority_level?: PriorityResult['level'];
@@ -38,6 +39,7 @@ export interface MapIncident {
   // Phase 7 extensions
   maintenance_actions?: MaintenanceAction[] | MaintenanceAction;
   action?: MaintenanceAction;
+  metadata?: any;
 }
 
 export interface MapBus {

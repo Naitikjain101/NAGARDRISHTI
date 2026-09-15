@@ -257,19 +257,31 @@ async def reset_live_monitoring():
     """
     client = get_supabase()
     try:
-        # Delete ALL incidents, which we also manually cascade just in case Supabase FKs aren't set to CASCADE
-        client.table("maintenance_actions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        client.table("incident_observations").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        client.table("incident_evidence").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        client.table("incidents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        logger.info("[RESET] Deleted all incidents and related records from the database to ensure a clean slate.")
+        # Get all demo incidents to delete their linked records
+        demo_incidents = client.table("incidents").select("id").eq("metadata->>is_demo", "true").execute()
+        demo_ids = [inc["id"] for inc in demo_incidents.data] if demo_incidents.data else []
 
-        # Delete all demo missions (this cascades to route_points)
-        client.table("route_points").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        client.table("demo_missions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-        logger.info("[RESET] Deleted all Live Monitoring sessions (demo_missions).")
+        if demo_ids:
+            # Delete linked operational records
+            client.table("incident_observations").delete().in_("incident_id", demo_ids).execute()
+            client.table("maintenance_actions").delete().in_("incident_id", demo_ids).execute()
+            # Delete the demo incidents themselves
+            client.table("incidents").delete().in_("id", demo_ids).execute()
 
-        return {"message": "Live Monitoring data and all incidents reset successfully."}
+        # Delete all maintenance actions on canonical demo missions to clear operations state
+        mission_res = client.table("demo_missions").select("id").execute()
+        mission_ids = [m["id"] for m in mission_res.data] if mission_res.data else []
+        if mission_ids:
+            canonical = client.table("incidents").select("id").in_("source_mission_id", mission_ids).execute()
+            canonical_ids = [inc["id"] for inc in canonical.data] if canonical.data else []
+            if canonical_ids:
+                client.table("maintenance_actions").delete().in_("incident_id", canonical_ids).execute()
+
+        # Reset demo missions to READY status instead of deleting them
+        client.table("demo_missions").update({"status": "READY"}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        logger.info("[RESET] Reset all Live Monitoring sessions (demo_missions) to READY status.")
+
+        return {"message": "Live Monitoring data and all demo incidents reset successfully."}
     except Exception as e:
         logger.error(f"[RESET] Failed to reset Live Monitoring data: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset Live Monitoring data")
@@ -316,10 +328,19 @@ async def delete_journey(mission_id: str):
     mission_resp = client.table("demo_missions").select("bus_id").eq("id", mission_id).execute()
     bus_id = mission_resp.data[0]["bus_id"] if mission_resp.data else None
     
-    # 1. Delete associated route points
+    # 1. Delete associated incidents and their dependents
+    incidents = client.table("incidents").select("id").eq("source_mission_id", mission_id).execute()
+    inc_ids = [i["id"] for i in incidents.data] if incidents.data else []
+    if inc_ids:
+        client.table("maintenance_actions").delete().in_("incident_id", inc_ids).execute()
+        client.table("incident_observations").delete().in_("incident_id", inc_ids).execute()
+        client.table("incident_evidence").delete().in_("incident_id", inc_ids).execute()
+        client.table("incidents").delete().in_("id", inc_ids).execute()
+
+    # 2. Delete associated route points
     client.table("route_points").delete().eq("mission_id", mission_id).execute()
     
-    # 2. Delete from demo_missions
+    # 3. Delete from demo_missions
     res = client.table("demo_missions").delete().eq("id", mission_id).execute()
     
     # 3. Clean up orphaned bus if no journeys left
@@ -577,7 +598,7 @@ async def get_map_incidents(
     q = client.table("incidents") \
         .select("id, incident_type, severity, status, confidence, latitude, longitude, "
                 "observation_count, observed_by, dedup_status, first_seen_at, last_seen_at, "
-                "maintenance_actions(*)") \
+                "created_at, maintenance_actions(*)") \
         .not_.is_("latitude", "null") \
         .not_.is_("longitude", "null") \
         .gte("confidence", min_confidence)

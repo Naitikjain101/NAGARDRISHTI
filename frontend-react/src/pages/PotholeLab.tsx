@@ -157,7 +157,7 @@ export default function PotholeLab() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background text-foreground p-6">
+    <div className="flex-1 bg-background text-foreground p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         
         {/* Header */}
