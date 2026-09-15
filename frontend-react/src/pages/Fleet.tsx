@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Bus, Clock, AlertTriangle, Activity, Plus, PlayCircle, Loader2, FileVideo, Trash2, Edit2 } from 'lucide-react';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fleetApi } from '@/api/fleet';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -11,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 export function Fleet() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const { data: buses, isLoading } = useQuery({
@@ -51,19 +55,18 @@ export function Fleet() {
   };
 
   const handleDeleteJourney = async (journeyId: string) => {
-    if (!window.confirm("Are you sure you want to delete this journey? This will remove all AI insights linked to it.")) return;
     try {
       const res = await fetch(`/api/missions/${journeyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete journey');
       queryClient.invalidateQueries({ queryKey: ['fleet'] });
+      toast.success('Journey deleted', 'The journey and its AI insights have been removed.');
     } catch (e) {
-      console.error(e);
-      alert('Error deleting journey');
+      toast.error('Delete failed', 'Unable to delete the journey. Please try again.');
     }
   };
 
   const handleEditJourney = async (journeyId: string, currentName: string) => {
-    const newName = window.prompt("Enter new route name:", currentName);
+    const newName = window.prompt('Enter new route name:', currentName);
     if (!newName || newName === currentName) return;
     try {
       const res = await fetch(`/api/missions/${journeyId}`, {
@@ -73,9 +76,9 @@ export function Fleet() {
       });
       if (!res.ok) throw new Error('Failed to update journey');
       queryClient.invalidateQueries({ queryKey: ['fleet'] });
+      toast.success('Journey renamed', `Route name updated to "${newName}".`);
     } catch (e) {
-      console.error(e);
-      alert('Error updating journey');
+      toast.error('Rename failed', 'Unable to update the journey name.');
     }
   };
 
@@ -85,20 +88,17 @@ export function Fleet() {
   };
 
   return (
-    <div className="space-y-6 flex flex-col h-full overflow-y-auto pb-8">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-2xl font-bold">Fleet & Journeys</h1>
-          <p className="text-muted-foreground">Manage buses and recorded survey journeys.</p>
-        </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          ADD BUS JOURNEY
-        </button>
-      </div>
+    <div className="page-content pb-8">
+      <PageHeader
+        title="Fleet & Journeys"
+        icon={Bus}
+        description="Manage survey buses and recorded AI-processed journey sessions."
+        actions={
+          <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
+            Add Bus Journey
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard title="Total Buses" value={isLoading ? "—" : totalBuses} icon={Bus} description="Registered in network" />

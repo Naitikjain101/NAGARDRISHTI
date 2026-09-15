@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Navigation, Car, Users, AlertTriangle, Loader2 } from 'lucide-react';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export function TrafficIntelligence() {
   const [missions, setMissions] = useState<any[]>([]);
@@ -97,24 +98,25 @@ export function TrafficIntelligence() {
   }, [trafficWindows]);
 
   return (
-    <div className="space-y-6 flex flex-col h-full overflow-y-auto pb-10">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-2xl font-bold">Traffic Intelligence</h1>
-          <p className="text-muted-foreground">Monitor traffic flow, congestion, and compliance from canonical AI observations.</p>
-        </div>
-        <select
-          value={selectedVideo}
-          onChange={e => setSelectedVideo(e.target.value)}
-          className="bg-zinc-900 border border-border text-white text-sm rounded-md px-3 py-1.5 focus:outline-none focus:border-primary"
-        >
+    <div className="page-content pb-10">
+      <PageHeader
+        title="Traffic Intelligence"
+        icon={Navigation}
+        description="Monitor traffic flow, congestion, and vehicle density from AI observations."
+        actions={
+          <select
+            value={selectedVideo}
+            onChange={e => setSelectedVideo(e.target.value)}
+            className="h-8 bg-card border border-input text-foreground text-sm rounded px-3 focus:outline-none focus:ring-2 focus:ring-ring"
+          >
           {missions.map(m => (
             <option key={m.id} value={m.video_filename}>
               {m.route_name} ({m.video_filename})
             </option>
           ))}
-        </select>
-      </div>
+          </select>
+        }
+      />
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center min-h-[400px]">
