@@ -14,11 +14,13 @@ function buildIcon(incident: MapIncident): L.DivIcon {
   const isConfirmed = incident.dedup_status === 'CONFIRMED';
   const busCount = incident.observed_by?.length || 1;
 
-  // Semantic colors per spec: pothole=RED, waterlogging=BLUE
   let primary = '#ef4444';   // red — pothole default
   let icon = '🕳️';
 
-  if (type === 'waterlogging') {
+  if (incident.status === 'RESOLVED') {
+    primary = '#6b7280';     // grey
+    icon = '✅';
+  } else if (type === 'waterlogging') {
     primary = '#3b82f6';     // blue
     icon = '💧';
   } else if (type === 'pothole') {

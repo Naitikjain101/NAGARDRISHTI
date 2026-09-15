@@ -405,47 +405,12 @@ def _persist_results(client, job_id: str, video_id: str, result) -> None:
                     )
                 logger.info("[VIDEO] job=%s results_uploaded_to_storage", job_id)
             except Exception as storage_exc:
-                # Do NOT raise here — a storage failure should not kill incident persistence.
-                # Log the error but continue so incidents/observations still get saved.
+                # Do NOT raise here — a storage failure should not kill persistence.
                 logger.error("[VIDEO] job=%s storage_upload_failed (continuing): %s", job_id, storage_exc)
-
-        # ── 1. Look up the linked demo_mission + route GPS ────────────────────
-        mission_repo = MissionRepository(client)
-        mission_id: str | None = None
-        bus_id: str | None = None
-        route_name: str | None = None
-        interpolator: InterpolationEngine | None = None
-
-        try:
-            ms_resp = client.table("demo_missions").select("id, bus_id, route_name, metadata") \
-                .eq("metadata->>video_id", video_id).execute()
-            if ms_resp.data:
-                ms = ms_resp.data[0]
-                mission_id = ms["id"]
-                bus_id = ms.get("bus_id")
-                route_name = ms.get("route_name")
-                route_points = mission_repo.get_route_points(mission_id)
-                if len(route_points) >= 2:
-                    interpolator = InterpolationEngine(route_points)
-                    logger.info("[VIDEO] job=%s GPS interpolator ready points=%d", job_id, len(route_points))
-                else:
-                    logger.warning("[VIDEO] job=%s too few route_points (%d) for GPS interpolation", job_id, len(route_points))
-        except Exception as gps_exc:
-            logger.warning("[VIDEO] job=%s GPS lookup failed (incidents will have no lat/lng): %s", job_id, gps_exc)
-
-        # Helper — interpolate safely, return (lat, lng) or (None, None)
-        def _gps_at(ts: float):
-            if interpolator is None:
-                return None, None
-            try:
-                lat, lng = interpolator.position_at(ts)
-                return lat, lng
-            except Exception:
-                return None, None
 
         job_start = datetime.now(timezone.utc)
 
-        # ── 2. Batch Insert Traffic Windows ───────────────────────────────────
+        # ── 1. Batch Insert Traffic Windows ───────────────────────────────────
         traffic_windows = []
         for w in result.density_windows:
             w_start_time = (job_start + timedelta(seconds=w.window_start)).isoformat()
@@ -463,141 +428,20 @@ def _persist_results(client, job_id: str, video_id: str, result) -> None:
         if traffic_windows:
             client.table("traffic_windows").insert(traffic_windows).execute()
             logger.info("[VIDEO] job=%s traffic_windows_inserted count=%d", job_id, len(traffic_windows))
-
-        # ── 3. Build Incidents + Observations via DeduplicationPipeline ─────────
-        evidence_to_insert = []
-        dedup_pipeline = DeduplicationPipeline(client)
-
-        def _process_event(e, incident_type: str):
-            lat, lng = _gps_at(e.first_seen_timestamp)
             
-            # If we don't have GPS, we can't reliably dedup. We insert manually as a fallback.
-            if lat is None or lng is None:
-                incident_id = str(uuid.uuid4())
-                first_seen = (job_start + timedelta(seconds=e.first_seen_timestamp)).isoformat()
-                last_seen  = (job_start + timedelta(seconds=e.last_seen_timestamp)).isoformat()
-                
-                inc = {
-                    "id":            incident_id,
-                    "ai_job_id":     job_id,
-                    "incident_type": incident_type,
-                    "severity":      e.estimated_severity.value,
-                    "status":        "OPEN",
-                    "confidence":    e.max_confidence,
-                    "frame_index":   e.first_seen_frame,
-                    "bbox":          e.representative_bbox,
-                    "tracking_id":   str(e.event_id),
-                    "first_seen_at": first_seen,
-                    "last_seen_at":  last_seen,
-                    "observation_count": 1,
-                    "observed_by": [bus_id] if bus_id else [],
-                    "source_mission_id": mission_id,
-                    "metadata": {
-                        "video_id":        video_id,
-                        "mission_id":      mission_id,
-                        "bus_id":          bus_id,
-                        "route_name":      route_name,
-                        "composite_score": e.stability_score,
-                        "video_time_sec":  e.first_seen_timestamp,
-                        "last_video_time_sec": e.last_seen_timestamp,
-                        "total_detections": e.total_detections,
-                    },
-                }
-                
-                if incident_type == "pothole":
-                    inc["metadata"]["description"] = getattr(e, "suppression_reason", None)
-                elif incident_type == "waterlogging":
-                    inc["water_area_ratio"] = getattr(e, "max_area_ratio", None)
-                    inc["metadata"]["polygon"] = getattr(e, "last_polygon", None)
-                    inc["metadata"]["test_mode"] = True
-                
-                try:
-                    client.table("incidents").insert(inc).execute()
-                    client.table("incident_observations").insert({
-                        "incident_id":     incident_id,
-                        "mission_id":      mission_id,
-                        "bus_id":          bus_id,
-                        "video_timestamp": e.first_seen_timestamp,
-                        "confidence":      e.max_confidence,
-                        "bbox":            e.representative_bbox,
-                        "frame_index":     e.first_seen_frame,
-                    }).execute()
-                    evidence_to_insert.append({
-                        "incident_id":  incident_id,
-                        "evidence_type": "video",
-                        "storage_path": f"results/{video_id}_unified.json",
-                    })
-                except Exception as exc:
-                    logger.error("[VIDEO] Failed to insert fallback incident: %s", exc)
-                return
+        logger.info("[VIDEO] job=%s db_persist_complete (incidents deferred until live monitoring)", job_id)
 
-            # Prepare for pipeline
-            detection = {
-                "incident_type": incident_type,
-                "latitude": lat,
-                "longitude": lng,
-                "confidence": e.max_confidence,
-                "video_timestamp": e.first_seen_timestamp,
-                "frame_index": e.first_seen_frame,
-                "bbox": e.representative_bbox,
-            }
-            
-            extra_inc = {
-                "ai_job_id": job_id,
-                "tracking_id": str(e.event_id),
-                "metadata": {
-                    "video_id": video_id,
-                    "mission_id": mission_id,
-                    "bus_id": bus_id,
-                    "route_name": route_name,
-                    "composite_score": e.stability_score,
-                    "video_time_sec": e.first_seen_timestamp,
-                    "last_video_time_sec": e.last_seen_timestamp,
-                    "total_detections": e.total_detections,
-                }
-            }
-            
-            if incident_type == "pothole":
-                extra_inc["metadata"]["description"] = getattr(e, "suppression_reason", None)
-            elif incident_type == "waterlogging":
-                extra_inc["water_area_ratio"] = getattr(e, "max_area_ratio", None)
-                extra_inc["metadata"]["polygon"] = getattr(e, "last_polygon", None)
-                extra_inc["metadata"]["test_mode"] = True
-
-            try:
-                res = dedup_pipeline.process(
-                    detection=detection,
-                    mission_id=mission_id,
-                    bus_id=bus_id or "UNKNOWN",
-                    extra_incident_fields=extra_inc,
-                )
-                evidence_to_insert.append({
-                    "incident_id":  res["incident_id"],
-                    "evidence_type": "video",
-                    "storage_path": f"results/{video_id}_unified.json",
-                })
-            except Exception as exc:
-                logger.error("[VIDEO] dedup_pipeline failed for %s: %s", incident_type, exc)
-
-        # ── Pothole events ────────────────────────────────────────────────────
-        for e in result.pothole_events:
-            _process_event(e, "pothole")
-
-        # ── Waterlogging events ───────────────────────────────────────────────
-        for e in result.waterlogging_events:
-            _process_event(e, "waterlogging")
-
-        # ── Insert Evidence ───────────────────────────────────────────────────
-        BATCH_SIZE = 100
-        for i in range(0, len(evidence_to_insert), BATCH_SIZE):
-            batch = evidence_to_insert[i:i + BATCH_SIZE]
-            client.table("incident_evidence").insert(batch).execute()
-
-        logger.info(
-            "[VIDEO] job=%s db_persist_complete gps_resolved=%s",
-            job_id,
-            "yes" if interpolator else "no"
-        )
+        # Trigger promotion if the video is already linked to a demo mission
+        # This handles the case where users add a QUEUED video to Live Monitoring directly from Fleet.
+        try:
+            ms_resp = client.table("demo_missions").select("id").eq("metadata->>video_id", video_id).execute()
+            if ms_resp.data:
+                mission_id = ms_resp.data[0]["id"]
+                logger.info("[VIDEO] job=%s video is linked to mission_id=%s, promoting canonical results now", job_id, mission_id)
+                from missions.promotion import promote_canonical_results
+                promote_canonical_results(video_id, mission_id)
+        except Exception as promo_exc:
+            logger.error("[VIDEO] job=%s failed to auto-promote incidents: %s", job_id, promo_exc)
 
         # Status update is handled by the caller based on final_status
 

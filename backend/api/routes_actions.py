@@ -84,10 +84,9 @@ async def create_action(incident_id: str):
     """Create a new maintenance action for an incident."""
     client = get_supabase()
     try:
-        # Check if action already exists
-        existing = client.table('maintenance_actions').select('id').eq('incident_id', incident_id).execute()
+        existing = client.table('maintenance_actions').select('*').eq('incident_id', incident_id).execute()
         if existing.data:
-            raise HTTPException(status_code=400, detail="Action already exists for this incident")
+            return existing.data[0]
 
         # Fetch incident to determine type
         inc_res = client.table('incidents').select('incident_type').eq('id', incident_id).execute()

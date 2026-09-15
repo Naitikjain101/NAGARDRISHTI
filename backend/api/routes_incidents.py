@@ -20,6 +20,7 @@ def _record_to_dict(inc: dict) -> dict:
         "id": inc.get("id"),
         "ai_job_id": inc.get("ai_job_id"),
         "type": inc.get("incident_type"),
+        "incident_type": inc.get("incident_type"),
         "severity": inc.get("severity"),
         "status": inc.get("status"),
         "confidence": inc.get("confidence"),
@@ -38,6 +39,14 @@ def _record_to_dict(inc: dict) -> dict:
         "tracking_id": inc.get("tracking_id"),
         "vehicle_class": inc.get("vehicle_class"),
         "metadata": inc.get("metadata"),
+        "first_seen_at": inc.get("first_seen_at"),
+        "last_seen_at": inc.get("last_seen_at"),
+        "observation_count": inc.get("observation_count"),
+        "observed_by": inc.get("observed_by"),
+        "dedup_status": inc.get("dedup_status"),
+        "priority_score": inc.get("priority_score"),
+        "priority_level": inc.get("priority_level"),
+        "priority_breakdown": inc.get("priority_breakdown"),
         "created_at": inc.get("created_at"),
         "updated_at": inc.get("updated_at")
     }

@@ -226,6 +226,19 @@ async def create_journey(req: JourneyCreateRequest):
             num_points, db_points[0]["timestamp_seconds"], db_points[-1]["timestamp_seconds"],
         )
 
+    # 5. If journey is already READY (pre-processed), promote incidents immediately
+    if req.status == 'READY' and req.video_id:
+        from fastapi import BackgroundTasks
+        # We can run it in a thread or just call it if we pass background_tasks to the endpoint
+        import threading
+        from missions.promotion import promote_canonical_results
+        threading.Thread(
+            target=promote_canonical_results,
+            args=(req.video_id, mission_id),
+            name=f"promote-{mission_id[:8]}",
+            daemon=True
+        ).start()
+
     return {
         "mission_id": mission_id,
         "bus_id": record["bus_id"],
@@ -234,6 +247,32 @@ async def create_journey(req: JourneyCreateRequest):
         "message": "Journey queued successfully",
     }
 
+
+@router.post("/api/missions/reset")
+async def reset_live_monitoring():
+    """
+    Clears all Live Monitoring session state (demo_missions).
+    Also deletes all incidents generated from these sessions.
+    Leaves canonical AI results and videos untouched.
+    """
+    client = get_supabase()
+    try:
+        # Delete ALL incidents, which we also manually cascade just in case Supabase FKs aren't set to CASCADE
+        client.table("maintenance_actions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("incident_observations").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("incident_evidence").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("incidents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        logger.info("[RESET] Deleted all incidents and related records from the database to ensure a clean slate.")
+
+        # Delete all demo missions (this cascades to route_points)
+        client.table("route_points").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("demo_missions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        logger.info("[RESET] Deleted all Live Monitoring sessions (demo_missions).")
+
+        return {"message": "Live Monitoring data and all incidents reset successfully."}
+    except Exception as e:
+        logger.error(f"[RESET] Failed to reset Live Monitoring data: {e}")
+        raise HTTPException(status_code=500, detail="Failed to reset Live Monitoring data")
 
 class JourneyUpdateRequest(BaseModel):
     journey_name: Optional[str] = None

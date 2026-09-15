@@ -13,7 +13,7 @@ export function Maintenance() {
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
 
   const columns = [
-    { id: 'UNASSIGNED', title: 'UNASSIGNED', icon: AlertTriangle, color: 'text-red-500' },
+    { id: 'REJECTED', title: 'REJECTED', icon: AlertTriangle, color: 'text-red-500' },
     { id: 'ASSIGNED', title: 'ASSIGNED', icon: Clock, color: 'text-orange-500' },
     { id: 'IN_PROGRESS', title: 'IN PROGRESS', icon: Wrench, color: 'text-blue-500' },
     { id: 'RESOLVED', title: 'RESOLVED', icon: CheckCircle, color: 'text-emerald-500' },
@@ -63,10 +63,11 @@ export function Maintenance() {
                       key={task.id} 
                       className="bg-card border border-border rounded-md p-3 shadow-sm text-sm cursor-pointer hover:border-primary/50 hover:bg-secondary/20 transition-colors"
                       onClick={() => {
-                        // The backend query returns incident as `incidents` (join).
-                        // @ts-ignore - Supabase returns join object as 'incidents'
-                        const incident = task.incidents as Incident;
-                        if (incident) setSelectedIncident(incident);
+                        const incident = task.incidents as any;
+                        if (incident) {
+                          incident.action = task;
+                          setSelectedIncident(incident);
+                        }
                       }}
                     >
                       <div className="flex justify-between items-start mb-1">
