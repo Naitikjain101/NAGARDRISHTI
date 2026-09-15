@@ -4,7 +4,7 @@ import type { MapIncident } from '@/hooks/useMapIntelligence';
 import { useEffect, useState, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { videoApi } from '@/api/video';
 import { DetectionOverlay } from '@/components/video/DetectionOverlay';
 
@@ -24,10 +24,26 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
   
   // Local state to immediately reflect action changes without waiting for polling
   const [localAction, setLocalAction] = useState(incident?.action);
+  const queryClient = useQueryClient();
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalAction(incident?.action);
-  }, [incident?.action]);
+    setCreateError(null);
+    
+    // Attempt to fetch existing action from the database for this incident
+    if (incident && !incident.id.startsWith('demo-') && incident.id.length > 30) {
+      fetch(`/api/incidents/${incident.id}/actions`)
+        .then(res => {
+          if (res.ok) return res.json();
+          return null;
+        })
+        .then(action => {
+          if (action) setLocalAction(action);
+        })
+        .catch(console.error);
+    }
+  }, [incident]);
 
   useEffect(() => {
     if (incident) {
@@ -103,31 +119,35 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
 
   const handleCreateWorkOrder = async () => {
     setIsActionLoading(true);
+    setCreateError(null);
     try {
-      // For local demo incidents that haven't been pushed to the DB yet,
-      // simulate the work order creation locally.
       if (incident.id.startsWith('demo-') || incident.id.length < 30) {
-        throw new Error("Demo incident");
+        // Fallback for Demo / Fleet Replay without DB presence
+        const mockAction = {
+          id: `wo-demo-${Math.random().toString(36).substring(2, 9)}`,
+          status: 'UNASSIGNED',
+          assigned_team: 'Demo Repair Team',
+          assigned_department: 'Public Works Dept',
+          action_type: getRecommendedAction(incident.incident_type),
+          created_at: new Date().toISOString(),
+          is_mock: true // Flag to show UI badge
+        };
+        setLocalAction(mockAction as any);
+        setIsActionLoading(false);
+        return;
       }
       
       const res = await fetch(`/api/incidents/${incident.id}/actions`, { method: 'POST' });
+      const data = await res.json();
+      
       if (res.ok) {
-        const action = await res.json();
-        setLocalAction(action);
+        setLocalAction(data);
+        queryClient.invalidateQueries({ queryKey: ['maintenance'] });
       } else {
-        throw new Error("API Failed");
+        throw new Error(data.detail || "API Failed to create work order");
       }
-    } catch (e) {
-      // Fallback for Demo / Fleet Replay without DB presence
-      const mockAction = {
-        id: `wo-${Math.random().toString(36).substring(2, 9)}`,
-        status: 'ASSIGNED',
-        assigned_team: 'Demo Repair Team',
-        assigned_department: 'Public Works Dept',
-        action_type: getRecommendedAction(incident.incident_type),
-        created_at: new Date().toISOString(),
-      };
-      setLocalAction(mockAction as any);
+    } catch (e: any) {
+      setCreateError(e.message);
     } finally {
       setIsActionLoading(false);
     }
@@ -137,8 +157,17 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
     if (!localAction) return;
     setIsActionLoading(true);
     try {
-      if (localAction.id.startsWith('wo-')) {
-        throw new Error("Demo mock action");
+      if (localAction.id.startsWith('wo-demo')) {
+        // Fallback for Demo mock action update
+        setLocalAction({
+          ...localAction,
+          status,
+          resolution_note: note,
+          updated_at: new Date().toISOString()
+        });
+        if (status === 'RESOLVED') setIsResolving(false);
+        setIsActionLoading(false);
+        return;
       }
       const payload = { status, resolution_note: note };
       const res = await fetch(`/api/actions/${localAction.id}`, {
@@ -149,21 +178,17 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
       if (res.ok) {
         const updatedAction = await res.json();
         setLocalAction(updatedAction);
-        if (status === 'RESOLVED') setIsResolving(false);
+        queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+        queryClient.invalidateQueries({ queryKey: ['map_incidents'] });
+        if (status === 'RESOLVED') {
+          setIsResolving(false);
+        }
       } else {
-        throw new Error("API Failed");
+        throw new Error("API Update Failed");
       }
     } catch (e) {
-      // Fallback for Demo mock action
-      if (localAction) {
-        setLocalAction({
-          ...localAction,
-          status,
-          resolution_note: note,
-          updated_at: new Date().toISOString()
-        });
-      }
-      if (status === 'RESOLVED') setIsResolving(false);
+      console.error(e);
+      // Removed fake fallback here too
     } finally {
       setIsActionLoading(false);
     }
@@ -284,11 +309,14 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
                 <div>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Recommended Action</p>
                   <p className="text-sm font-medium">{getRecommendedAction(incident.incident_type)}</p>
+                  {createError && (
+                    <p className="text-xs text-red-500 mt-1">{createError}</p>
+                  )}
                 </div>
                 <button 
                   onClick={handleCreateWorkOrder} 
                   disabled={isActionLoading}
-                  className="px-3 py-1.5 bg-primary text-primary-foreground text-[10px] font-bold tracking-widest rounded transition-colors hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
+                  className="px-3 py-1.5 bg-primary text-primary-foreground text-[10px] font-bold tracking-widest rounded transition-colors hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1 shrink-0 ml-2"
                 >
                   {isActionLoading && <Loader2 className="w-3 h-3 animate-spin" />}
                   CREATE WORK ORDER
@@ -296,6 +324,11 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
               </div>
             ) : (
               <div className="space-y-4">
+                {localAction.is_mock && (
+                  <div className="bg-blue-500/10 border border-blue-500/20 text-blue-500 p-2 rounded-md text-[10px] font-bold tracking-widest text-center mb-2">
+                    DEMO MODE PREVIEW - NOT SAVED TO DATABASE
+                  </div>
+                )}
                 <div className="space-y-2 text-xs font-medium">
                   <div className="flex justify-between"><span className="text-muted-foreground">Work Order</span> <span className="font-mono font-bold">WO-{localAction.id.split('-')[0].toUpperCase()}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Department</span> <span>{localAction.assigned_department}</span></div>
@@ -461,9 +494,9 @@ export function IncidentDrawer({ incident, onClose }: IncidentDrawerProps) {
                   <div className="h-10 bg-background/50 rounded-lg"></div>
                   <div className="h-10 bg-background/50 rounded-lg"></div>
                 </div>
-              ) : evidence?.observations && evidence.observations.length > 0 ? (
+              ) : (evidence?.observations && evidence.observations.length > 0) || ((incident as any).observations && (incident as any).observations.length > 0) ? (
                 <div className="space-y-2">
-                  {evidence.observations.map((obs) => (
+                  {((evidence?.observations && evidence.observations.length > 0) ? evidence.observations : ((incident as any).observations || [])).map((obs: any) => (
                     <button
                       key={obs.id}
                       onClick={() => handleJumpToFrame(obs)}

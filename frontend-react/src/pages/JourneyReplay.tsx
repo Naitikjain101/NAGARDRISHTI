@@ -206,6 +206,16 @@ export function JourneyReplay({ missionId }: JourneyReplayProps) {
                   dedup_status: 'PENDING',
                   first_seen_at: new Date().toISOString(),
                   last_seen_at: new Date().toISOString(),
+                  observations: [{
+                    id: `demo-obs-${i}`,
+                    mission_id: mission?.id || 'demo',
+                    bus_id: mission?.bus_id || 'Demo Bus',
+                    video_timestamp: ev.timestamp,
+                    confidence: ev.max_confidence,
+                    bbox: null,
+                    created_at: new Date().toISOString(),
+                    route_name: mission?.route_name || 'AI Replay'
+                  }]
                });
 
                // 2. Map Intelligence assignment (P3/P4 Continuous Event Spatial Mapping)

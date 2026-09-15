@@ -29,25 +29,13 @@ def get_action_type_for_incident(incident_type: str) -> str:
     }
     return mapping.get(incident_type.lower(), "Field inspection required")
 
-def get_department_for_incident(incident_type: str) -> str:
-    mapping = {
-        "pothole": "Public Works Dept",
-        "road_damage": "Public Works Dept",
-        "waterlogging": "Water & Sanitation",
-        "traffic_infrastructure": "Transport Dept",
-        "hazard": "Emergency Response"
-    }
-    return mapping.get(incident_type.lower(), "Field Operations")
+def get_department_for_incident(incident_type: str) -> Optional[str]:
+    # No longer hardcoded default departments to allow UNASSIGNED detection
+    return None
 
-def get_team_for_incident(incident_type: str) -> str:
-    mapping = {
-        "pothole": "Road Repair Team Alpha",
-        "road_damage": "Road Repair Team Alpha",
-        "waterlogging": "Drainage Response Unit",
-        "traffic_infrastructure": "Traffic Systems Team",
-        "hazard": "Rapid Response Unit"
-    }
-    return mapping.get(incident_type.lower(), "General Inspection Team")
+def get_team_for_incident(incident_type: str) -> Optional[str]:
+    # No longer hardcoded default teams to allow UNASSIGNED detection
+    return None
 
 
 @router.get("/actions")
@@ -76,6 +64,21 @@ async def get_action(action_id: str):
         logger.error(f"Failed to fetch action {action_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch action")
 
+@router.get("/incidents/{incident_id}/actions")
+async def get_incident_action(incident_id: str):
+    """Fetch the maintenance action for a specific incident."""
+    client = get_supabase()
+    try:
+        response = client.table('maintenance_actions').select('*').eq('incident_id', incident_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="No action found for this incident")
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch action for incident {incident_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 @router.post("/incidents/{incident_id}/actions")
 async def create_action(incident_id: str):
     """Create a new maintenance action for an incident."""
@@ -97,7 +100,7 @@ async def create_action(incident_id: str):
         now = get_current_utc()
         action_payload = {
             "incident_id": incident_id,
-            "status": "ASSIGNED", # Skipping UNASSIGNED for demo smoothness
+            "status": "UNASSIGNED", # Properly unassigned
             "assigned_department": get_department_for_incident(incident_type),
             "assigned_team": get_team_for_incident(incident_type),
             "action_type": get_action_type_for_incident(incident_type),
