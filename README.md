@@ -233,8 +233,8 @@ NagarDrishti/
 
 ### 1. Clone & Configure
 ```bash
-git clone https://github.com/Naitikjain101/Nagardrishti-pvt.git
-cd Nagardrishti-pvt
+git clone https://github.com/Naitikjain101/NAGARDRISHTI.git
+cd NAGRDRISHTI
 cp .env.example .env
 ```
 *Edit `.env` with your Supabase credentials and URLs.*
