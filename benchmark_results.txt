@@ -1,0 +1,66 @@
+Starting Benchmark on mps
+Video: /Users/naitikjain/Downloads/Nagar drishti/traffic_test-2-2-2.mp4
+
+Loading yolov8n.pt...
+  Testing conf=0.2...
+  Testing conf=0.25...
+  Testing conf=0.3...
+  Testing conf=0.4...
+  Testing conf=0.5...
+
+Loading yolo11n.pt...
+[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 2% ──────────── 120.0KB/5.4MB 1.1MB/s 0.1s<4.9s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 4% ╸─────────── 240.0KB/5.4MB 1.1MB/s 0.2s<4.6s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 7% ╸─────────── 384.0KB/5.4MB 1.3MB/s 0.3s<3.7s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 10% ━─────────── 560.0KB/5.4MB 1.7MB/s 0.4s<2.8s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 16% ━╸────────── 864.0KB/5.4MB 2.9MB/s 0.5s<1.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 22% ━━╸───────── 1.2/5.4MB 2.5MB/s 0.6s<1.7s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 27% ━━━───────── 1.4/5.4MB 2.5MB/s 0.8s<1.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 34% ━━━━──────── 1.8/5.4MB 4.0MB/s 0.9s<0.9s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 42% ━━━━━─────── 2.3/5.4MB 3.2MB/s 1.0s<1.0s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 51% ━━━━━━────── 2.7/5.4MB 3.0MB/s 1.1s<0.9s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 60% ━━━━━━━───── 3.2/5.4MB 4.9MB/s 1.2s<0.4s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 67% ━━━━━━━━──── 3.6/5.4MB 3.7MB/s 1.3s<0.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 73% ━━━━━━━━╸─── 3.9/5.4MB 1.5MB/s 1.6s<1.0s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 81% ━━━━━━━━━╸── 4.4/5.4MB 3.9MB/s 1.7s<0.3s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 88% ━━━━━━━━━━╸─ 4.7/5.4MB 2.3MB/s 1.8s<0.3s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 95% ━━━━━━━━━━━─ 5.1/5.4MB 2.8MB/s 1.9s<0.1s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 100% ━━━━━━━━━━━╸ 5.3/5.4MB 2.6MB/s 2.1s<0.0s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt to 'yolo11n.pt': 100% ━━━━━━━━━━━━ 5.4MB 2.6MB/s 2.1s
+  Testing conf=0.2...
+  Testing conf=0.25...
+  Testing conf=0.3...
+  Testing conf=0.4...
+  Testing conf=0.5...
+
+Loading yolo26n.pt...
+[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 2% ──────────── 112.0KB/5.3MB 281.6KB/s 0.1s<18.8s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 6% ╸─────────── 320.0KB/5.3MB 1.7MB/s 0.2s<2.9s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 10% ━─────────── 528.0KB/5.3MB 1.8MB/s 0.4s<2.7s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 15% ━╸────────── 832.0KB/5.3MB 3.0MB/s 0.5s<1.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 22% ━━╸───────── 1.2/5.3MB 3.5MB/s 0.6s<1.2s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 30% ━━━╸──────── 1.6/5.3MB 3.9MB/s 0.7s<1.0s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 38% ━━━━╸─────── 2.0/5.3MB 4.1MB/s 0.8s<0.8s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 43% ━━━━━─────── 2.2/5.3MB 2.4MB/s 0.9s<1.3s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 51% ━━━━━━────── 2.7/5.3MB 4.5MB/s 1.0s<0.6s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 61% ━━━━━━━───── 3.2/5.3MB 5.0MB/s 1.1s<0.4s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 67% ━━━━━━━━──── 3.5/5.3MB 3.3MB/s 1.2s<0.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 69% ━━━━━━━━──── 3.7/5.3MB 477.7KB/s 1.3s<3.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 78% ━━━━━━━━━─── 4.1/5.3MB 4.7MB/s 1.4s<0.2s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 83% ━━━━━━━━━╸── 4.4/5.3MB 2.4MB/s 1.5s<0.4s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 85% ━━━━━━━━━━── 4.5/5.3MB 574.0KB/s 1.6s<1.5s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 91% ━━━━━━━━━━╸─ 4.8/5.3MB 3.6MB/s 1.7s<0.1s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 97% ━━━━━━━━━━━╸ 5.1/5.3MB 2.7MB/s 1.8s<0.1s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 100% ━━━━━━━━━━━╸ 5.3/5.3MB 1.5MB/s 1.9s<0.0s[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 100% ━━━━━━━━━━━━ 5.3MB 2.7MB/s 1.9s
+  Testing conf=0.2...
+  Testing conf=0.25...
+  Testing conf=0.3...
+  Testing conf=0.4...
+  Testing conf=0.5...
+
+
+==================================================
+BENCHMARK RESULTS
+==================================================
+
+MODEL: yolov8n.pt
+  Conf: 0.20 | FPS: 36.0 | Avg Det: 12.91 | Total: 3873 | Dups: 124 (Cross: 124) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 427, 'car': 2105, 'motorcycle': 1115, 'bus': 154, 'bicycle': 72}
+  Conf: 0.25 | FPS: 44.5 | Avg Det: 10.26 | Total: 3077 | Dups: 104 (Cross: 104) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 409, 'car': 1515, 'motorcycle': 957, 'bus': 147, 'bicycle': 49}
+  Conf: 0.30 | FPS: 46.5 | Avg Det: 8.24 | Total: 2473 | Dups: 77 (Cross: 77) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 378, 'car': 1133, 'motorcycle': 806, 'bus': 132, 'bicycle': 24}
+  Conf: 0.40 | FPS: 45.3 | Avg Det: 5.88 | Total: 1765 | Dups: 54 (Cross: 54) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 338, 'car': 687, 'motorcycle': 623, 'bus': 111, 'bicycle': 6}
+  Conf: 0.50 | FPS: 46.6 | Avg Det: 4.15 | Total: 1245 | Dups: 33 (Cross: 33) | Small: 0 | Stability: 0.89
+    Classes: {'truck': 297, 'car': 425, 'motorcycle': 441, 'bus': 82}
+
+MODEL: yolo11n.pt
+  Conf: 0.20 | FPS: 45.4 | Avg Det: 12.59 | Total: 3778 | Dups: 237 (Cross: 237) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 551, 'motorcycle': 1266, 'car': 1705, 'bus': 182, 'bicycle': 74}
+  Conf: 0.25 | FPS: 45.5 | Avg Det: 9.89 | Total: 2967 | Dups: 186 (Cross: 186) | Small: 0 | Stability: 0.92
+    Classes: {'truck': 506, 'motorcycle': 1060, 'car': 1171, 'bus': 174, 'bicycle': 56}
+  Conf: 0.30 | FPS: 46.7 | Avg Det: 8.26 | Total: 2477 | Dups: 158 (Cross: 158) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 472, 'motorcycle': 886, 'car': 918, 'bus': 168, 'bicycle': 33}
+  Conf: 0.40 | FPS: 47.8 | Avg Det: 5.82 | Total: 1747 | Dups: 117 (Cross: 117) | Small: 0 | Stability: 0.91
+    Classes: {'truck': 420, 'motorcycle': 584, 'car': 599, 'bus': 134, 'bicycle': 10}
+  Conf: 0.50 | FPS: 47.1 | Avg Det: 4.09 | Total: 1226 | Dups: 69 (Cross: 69) | Small: 0 | Stability: 0.89
+    Classes: {'truck': 384, 'motorcycle': 383, 'car': 381, 'bus': 78}
+
+MODEL: yolo26n.pt
+  Conf: 0.20 | FPS: 53.0 | Avg Det: 7.83 | Total: 2349 | Dups: 315 (Cross: 217) | Small: 0 | Stability: 0.88
+    Classes: {'motorcycle': 709, 'car': 908, 'truck': 461, 'bus': 237, 'bicycle': 34}
+  Conf: 0.25 | FPS: 56.0 | Avg Det: 6.10 | Total: 1831 | Dups: 199 (Cross: 148) | Small: 0 | Stability: 0.88
+    Classes: {'motorcycle': 539, 'car': 667, 'truck': 407, 'bus': 200, 'bicycle': 18}
+  Conf: 0.30 | FPS: 55.4 | Avg Det: 5.09 | Total: 1528 | Dups: 130 (Cross: 99) | Small: 0 | Stability: 0.88
+    Classes: {'motorcycle': 423, 'car': 556, 'truck': 370, 'bus': 175, 'bicycle': 4}
+  Conf: 0.40 | FPS: 55.8 | Avg Det: 3.76 | Total: 1128 | Dups: 33 (Cross: 24) | Small: 0 | Stability: 0.88
+    Classes: {'motorcycle': 289, 'car': 403, 'truck': 315, 'bus': 119, 'bicycle': 2}
+  Conf: 0.50 | FPS: 55.9 | Avg Det: 2.78 | Total: 834 | Dups: 4 (Cross: 1) | Small: 0 | Stability: 0.87
+    Classes: {'motorcycle': 237, 'car': 277, 'truck': 254, 'bus': 66}

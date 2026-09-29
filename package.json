@@ -1,0 +1,18 @@
+{
+  "name": "nagardrishti-monorepo",
+  "version": "1.0.0",
+  "description": "AI-Powered Mobile Urban Intelligence Platform",
+  "scripts": {
+    "install:frontend": "cd frontend-react && npm install",
+    "install:backend": "cd backend && python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt",
+    "install:all": "npm run install:frontend && npm run install:backend",
+    "dev:frontend": "cd frontend-react && npm run dev",
+    "dev:backend": "cd backend && . venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "author": "HackDynasty",
+  "license": "MIT"
+}

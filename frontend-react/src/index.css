@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Surface ─────────────────────────────── */
+    --background:         #F4F6F9;
+    --foreground:         #18202A;
+    --card:               #FFFFFF;
+    --card-foreground:    #18202A;
+    --popover:            #FFFFFF;
+    --popover-foreground: #18202A;
+
+    /* ── Brand accent ────────────────────────── */
+    --primary:            #2563EB;
+    --primary-foreground: #FFFFFF;
+
+    /* ── Surfaces ────────────────────────────── */
+    --secondary:          #EEF1F5;
+    --secondary-foreground: #374151;
+    --muted:              #EEF1F5;
+    --muted-foreground:   #6B7684;
+    --accent:             #EEF1F5;
+    --accent-foreground:  #18202A;
+
+    /* ── Borders / inputs ────────────────────── */
+    --border:             #DDE2E8;
+    --input:              #DDE2E8;
+    --ring:               #2563EB;
+
+    /* ── Semantic states ─────────────────────── */
+    --destructive:        #DC2626;
+    --destructive-foreground: #FFFFFF;
+
+    /* ── Sidebar (deep navy) ─────────────────── */
+    --sidebar-bg:         #1C2536;
+    --sidebar-border:     #2A3347;
+    --sidebar-text:       #9FAFC2;
+    --sidebar-text-muted: #64748B;
+    --sidebar-active-bg:  #2563EB;
+    --sidebar-active-text:#FFFFFF;
+    --sidebar-hover-bg:   rgba(255,255,255,0.06);
+
+    /* ── Status ──────────────────────────────── */
+    --status-critical:    #DC2626;
+    --status-high:        #D97706;
+    --status-medium:      #2563EB;
+    --status-low:         #16A34A;
+    --status-online:      #16A34A;
+    --status-offline:     #DC2626;
+    --status-warning:     #D97706;
+
+    /* ── Shape ───────────────────────────────── */
+    --radius:             0.375rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+  }
+
+  /* Scrollbar – subtle */
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ── Status dot ──────────────────────────── */
+  .status-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+  .status-dot-live    { background: var(--status-online); animation: pulse 2s infinite; }
+  .status-dot-warning { background: var(--status-warning); }
+  .status-dot-offline { background: var(--status-offline); }
+
+  /* ── Page wrapper ────────────────────────── */
+  .page-content {
+    @apply flex flex-col gap-6 h-full;
+  }
+
+  /* ── Sidebar nav item ─────────────────────  */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--sidebar-text);
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+    white-space: nowrap;
+  }
+  .nav-item:hover {
+    background: var(--sidebar-hover-bg);
+    color: #FFFFFF;
+  }
+  .nav-item.active {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
+  }
+
+  /* ── Card ────────────────────────────────── */
+  .panel {
+    @apply bg-card border border-border rounded-lg;
+  }
+
+  /* ── Data table ──────────────────────────── */
+  .data-table {
+    @apply w-full text-sm text-left border-collapse;
+  }
+  .data-table th {
+    @apply px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border bg-secondary/60;
+  }
+  .data-table td {
+    @apply px-4 py-3 border-b border-border/60;
+  }
+  .data-table tbody tr:hover td {
+    @apply bg-secondary/30;
+  }
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}

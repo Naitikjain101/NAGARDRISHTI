@@ -1,0 +1,27 @@
+{
+  "bus_id": "BUS-318",
+  "route_id": "R-03",
+  "route_name": "Jaipur Mansarovar Expressway",
+  "video_filename": "potholes.mp4",
+  "duration": 512,
+  "gps": [
+    {"timestamp": 0,   "lat": 26.8628, "lng": 75.7564},
+    {"timestamp": 30,  "lat": 26.8659, "lng": 75.7601},
+    {"timestamp": 60,  "lat": 26.8693, "lng": 75.7639},
+    {"timestamp": 90,  "lat": 26.8728, "lng": 75.7676},
+    {"timestamp": 120, "lat": 26.8762, "lng": 75.7712},
+    {"timestamp": 150, "lat": 26.8796, "lng": 75.7748},
+    {"timestamp": 180, "lat": 26.8830, "lng": 75.7783},
+    {"timestamp": 210, "lat": 26.8864, "lng": 75.7818},
+    {"timestamp": 240, "lat": 26.8898, "lng": 75.7852},
+    {"timestamp": 270, "lat": 26.8932, "lng": 75.7885},
+    {"timestamp": 300, "lat": 26.8966, "lng": 75.7918},
+    {"timestamp": 330, "lat": 26.9000, "lng": 75.7950},
+    {"timestamp": 360, "lat": 26.9034, "lng": 75.7981},
+    {"timestamp": 390, "lat": 26.9068, "lng": 75.8011},
+    {"timestamp": 420, "lat": 26.9102, "lng": 75.8040},
+    {"timestamp": 450, "lat": 26.9136, "lng": 75.8068},
+    {"timestamp": 480, "lat": 26.9170, "lng": 75.8095},
+    {"timestamp": 512, "lat": 26.9204, "lng": 75.8122}
+  ]
+}

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+uploads/
+runs/
+benchmark_results/
+benchmark_outputs/
+results_a/
+results_b/
+data/
+*.mp4

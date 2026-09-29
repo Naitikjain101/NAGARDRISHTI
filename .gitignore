@@ -1,0 +1,14 @@
+node_modules/
+venv/
+.DS_Store
+.env.local
+*.pt
+*.mp4
+*.jpg
+runs/
+__pycache__/
+backend/uploads/
+backend/results/
+backend/data/
+backend/demo_videos/
+datasets/

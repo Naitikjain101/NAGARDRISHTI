@@ -1,0 +1,228 @@
+:root {
+  --bg-dark: #121212;
+  --bg-panel: #1e1e1e;
+  --border: #333;
+  --primary: #3498db;
+  --primary-hover: #2980b9;
+  --text: #eee;
+  --text-muted: #888;
+  
+  --status-pending: #f39c12;
+  --status-annotated: #2ecc71;
+  --status-nowater: #95a5a6;
+  --status-diff: #e74c3c;
+  --status-skip: #34495e;
+}
+
+body.annotation-body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-dark);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  height: 50px;
+  box-sizing: border-box;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+.logo span {
+  color: var(--primary);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.stats {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.stats span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+}
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.annotation-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.frame-sidebar {
+  width: 250px;
+  background-color: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+}
+.sidebar-header input {
+  width: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  color: white;
+  border-radius: 4px;
+}
+
+.frame-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.frame-item {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.frame-item:hover {
+  background-color: #2a2a2a;
+}
+.frame-item.active {
+  background-color: #2c3e50;
+  border-left: 3px solid var(--primary);
+}
+
+.frame-name {
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+.badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: inline-block;
+  align-self: flex-start;
+  font-weight: 600;
+}
+.badge.pending { background-color: var(--status-pending); color: #000; }
+.badge.annotated { background-color: var(--status-annotated); color: #000; }
+.badge.nowater { background-color: var(--status-nowater); color: #fff; }
+.badge.difficult { background-color: var(--status-diff); color: #fff; }
+.badge.skipped { background-color: var(--status-skip); color: #fff; }
+
+.canvas-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: #0a0a0a;
+}
+
+.toolbar {
+  height: 40px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+}
+
+.toolbar button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.toolbar button:hover {
+  background: #333;
+}
+.toolbar button.active-status {
+  border-color: var(--primary);
+  background-color: rgba(52, 152, 219, 0.2);
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border);
+  margin: 0 5px;
+}
+
+.canvas-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden; /* We handle pan/zoom manually */
+  cursor: crosshair;
+}
+.canvas-wrapper.panning {
+  cursor: grab;
+}
+.canvas-wrapper.panning:active {
+  cursor: grabbing;
+}
+
+#annotationCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* width and height set via JS to match container */
+}
+
+.bottom-bar {
+  height: 30px;
+  background-color: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.bottom-bar .hints {
+  color: #666;
+}

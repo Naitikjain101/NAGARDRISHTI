@@ -1,0 +1,18 @@
+{
+  "bus_id": "BUS-205",
+  "route_id": "R-02",
+  "route_name": "Jaipur Civil Lines Corridor",
+  "video_filename": "16373790_3840_2160_30fps_compressed.mp4",
+  "duration": 16.7,
+  "gps": [
+    {"timestamp": 0.0,  "lat": 26.9124, "lng": 75.7873},
+    {"timestamp": 2.0,  "lat": 26.9130, "lng": 75.7885},
+    {"timestamp": 4.0,  "lat": 26.9136, "lng": 75.7897},
+    {"timestamp": 6.0,  "lat": 26.9142, "lng": 75.7909},
+    {"timestamp": 8.0,  "lat": 26.9148, "lng": 75.7921},
+    {"timestamp": 10.0, "lat": 26.9154, "lng": 75.7933},
+    {"timestamp": 12.0, "lat": 26.9160, "lng": 75.7945},
+    {"timestamp": 14.0, "lat": 26.9166, "lng": 75.7957},
+    {"timestamp": 16.7, "lat": 26.9172, "lng": 75.7970}
+  ]
+}

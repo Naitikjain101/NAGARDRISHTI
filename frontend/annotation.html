@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Urban Watch — Waterlogging Annotation</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/annotation.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="annotation-body">
+  
+  <header class="top-nav">
+    <div class="logo">Urban Watch <span>Annotation</span></div>
+    <div class="nav-right">
+      <div id="progressStats" class="stats">
+        Pending: <span id="statPending">0</span> | 
+        Annotated: <span id="statAnnotated">0</span> | 
+        Skipped/Diff: <span id="statSkipped">0</span>
+      </div>
+      <button id="btnExport" class="btn btn-primary">Export YOLO</button>
+    </div>
+  </header>
+
+  <div class="annotation-container">
+    <!-- Sidebar -->
+    <aside class="frame-sidebar">
+      <div class="sidebar-header">
+        <h3>Frames</h3>
+        <input type="text" id="filterFrames" placeholder="Filter status...">
+      </div>
+      <ul id="frameList" class="frame-list">
+        <!-- populated by JS -->
+      </ul>
+    </aside>
+
+    <!-- Main Canvas Area -->
+    <main class="canvas-workspace">
+      
+      <div class="toolbar">
+        <button id="btnPrev" title="Previous Frame (Left Arrow)">◀ Prev</button>
+        <button id="btnNext" title="Next Frame (Right Arrow)">Next ▶</button>
+        <div class="divider"></div>
+        <button id="btnAnnotate" class="btn-status" data-status="ANNOTATED" title="Annotate (A)">Annotated</button>
+        <button id="btnNoWater" class="btn-status" data-status="NO_WATERLOGGING" title="No Water (N)">No Water</button>
+        <button id="btnDiff" class="btn-status" data-status="DIFFICULT" title="Difficult (D)">Difficult</button>
+        <button id="btnSkip" class="btn-status" data-status="SKIPPED" title="Skip (X)">Skip</button>
+        <div class="divider"></div>
+        <button id="btnDeletePoly" title="Delete Polygon (Del/Backspace)">🗑️ Delete Poly</button>
+        <button id="btnUndo" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+        <div class="divider"></div>
+        <button id="btnSave" class="btn-primary" title="Save (S)">Save</button>
+      </div>
+
+      <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="annotationCanvas"></canvas>
+      </div>
+      
+      <div class="bottom-bar">
+        <span id="lblFrameInfo">Select a frame to begin</span>
+        <span class="hints">Zoom: +/- | Fit: 0 | Move points: Drag | Add point: Click</span>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="js/annotation.js"></script>
+</body>
+</html>
