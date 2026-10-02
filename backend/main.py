@@ -103,7 +103,8 @@ default_origins = [
     "http://127.0.0.1:5173",
     "http://localhost:8000",
     "http://localhost:3000",
-    "https://nagardrishti-nine.vercel.app"
+    "https://nagardrishti-nine.vercel.app",
+    "https://nagardrishti-hd.vercel.app"
 ]
 
 for origin in default_origins:

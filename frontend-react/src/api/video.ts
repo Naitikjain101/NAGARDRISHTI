@@ -184,8 +184,15 @@ export const videoApi = {
         .from('urban_watch_evidence')
         .getPublicUrl(`uploads/${cleanId}.mp4`);
       if (data?.publicUrl) {
-        console.log('[VideoAPI] ⚠️ Falling back to public URL:', data.publicUrl);
-        return data.publicUrl;
+        try {
+          const res = await fetch(data.publicUrl, { method: 'HEAD' });
+          if (res.ok) {
+            console.log('[VideoAPI] ⚠️ Falling back to public URL:', data.publicUrl);
+            return data.publicUrl;
+          }
+        } catch (e) {
+          console.warn('[VideoAPI] Public URL is not accessible:', e);
+        }
       }
     } catch (e) {
       console.warn('[VideoAPI] Public URL fallback failed:', e);

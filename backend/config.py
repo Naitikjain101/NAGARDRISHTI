@@ -31,6 +31,7 @@ CORS_ORIGINS = [
     "http://localhost:5500",  # python http.server
     "http://127.0.0.1:5500",
     "https://nagardrishti-nine.vercel.app", # Vercel Production
+    "https://nagardrishti-hd.vercel.app",
 ]
 
 # Maximum upload file size (bytes) — 500 MB
