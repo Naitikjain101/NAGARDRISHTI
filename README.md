@@ -29,7 +29,6 @@
 - [The Gap in Existing Solutions](#-the-gap-in-existing-solutions)
 - [Our Solution — NagarDrishti](#-our-solution--nagardrishti)
 - [Six Intelligence Layers](#-six-intelligence-layers)
-- [Architecture](#-architecture)
 - [Tech Stack](#-tech-stack)
 - [Platform Features (Command Center)](#-platform-features-command-center)
 - [Project Structure](#-project-structure)
@@ -141,13 +140,6 @@ NagarDrishti covers the **complete problem statement** through six interconnecte
 - Historical pattern analysis for urban planning.
 
 ---
-
-## 🏗 Architecture
-
-<div align="center">
-<img src="docs/architecture.jpg" alt="NagarDrishti Architecture" width="100%" />
-</div>
-
 ### Data Flow
 
 1. **Capture & Ingest** — Bus cameras provide video; GPS provides location.
