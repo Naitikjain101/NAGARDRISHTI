@@ -1,6 +1,4 @@
-<div align="center">
 
-<img src="docs/banner.jpg" alt="NagarDrishti Banner" width="100%" />
 
 # 🏙️ NagarDrishti
 
