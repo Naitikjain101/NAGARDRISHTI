@@ -4,7 +4,7 @@
 
 ### *AI-Powered Mobile Urban Intelligence Platform Using Public Transport Fleet*
 
-[![SIH 2024](https://img.shields.io/badge/SIH-Problem_Statement_26124-orange?style=for-the-badge&logo=hackthebox)](https://www.sih.gov.in/)
+[![SIH 2026](https://img.shields.io/badge/SIH-Problem_Statement_26124-orange?style=for-the-badge&logo=hackthebox)](https://www.sih.gov.in/)
 [![Smart Automation](https://img.shields.io/badge/Category-Smart_Automation-blue?style=for-the-badge&logo=robot)]()
 [![Team](https://img.shields.io/badge/Team-HackDynasty-cyan?style=for-the-badge&logo=teamspeak)]()
 
@@ -322,7 +322,7 @@ docker-compose up -d --build
 <div align="center">
 
 ### 🏆 Team HackDynasty
-*Smart India Hackathon 2024 — Problem Statement 26124*
+*Smart India Hackathon 2026 — Problem Statement 26124*
 
 <br/>
 <br/>
